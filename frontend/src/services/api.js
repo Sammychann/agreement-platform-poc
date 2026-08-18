@@ -4,26 +4,17 @@ const api = axios.create({
   baseURL: '/api',
 });
 
-/**
- * Submit the agreement form data along with signature files.
- * Backend expects: form_data (JSON string), customer_signature (file), msd_signature (file)
- */
 export const submitForm = async (formData, customerSignatureDataUrl, msdSignatureDataUrl) => {
   const multipart = new FormData();
 
-  // Backend expects form_data as a JSON string
   const payload = { ...formData };
-  // Map ownership values to backend format
   if (payload.device_ownership === 'Customer Owned') payload.device_ownership = 'customer';
-  if (payload.device_ownership === 'MSD Owned') payload.device_ownership = 'msd';
-  // Ensure agreement_value is a number
+  if (payload.device_ownership === 'Company Owned' || payload.device_ownership === 'MSD Owned') payload.device_ownership = 'msd';
   if (payload.agreement_value) payload.agreement_value = parseFloat(payload.agreement_value);
-  // agreement_type is set later via the modal, but backend schema requires it
   if (!payload.agreement_type) payload.agreement_type = 'pending';
   
   multipart.append('form_data', JSON.stringify(payload));
 
-  // Convert base64 data URLs to Blob files for signatures
   if (customerSignatureDataUrl) {
     const customerBlob = await dataUrlToBlob(customerSignatureDataUrl);
     multipart.append('customer_signature', customerBlob, 'customer_signature.png');
@@ -41,6 +32,11 @@ export const submitForm = async (formData, customerSignatureDataUrl, msdSignatur
 
 export const createAgreement = async (entryId, agreementType) => {
   const response = await api.post(`/generate/create/${entryId}`, { agreement_type: agreementType });
+  return response.data;
+};
+
+export const getAgreementDetails = async (agreementId) => {
+  const response = await api.get(`/generate/details/${agreementId}`);
   return response.data;
 };
 
@@ -77,7 +73,6 @@ export const downloadValidationReport = async (reportId) => {
   return response.data;
 };
 
-// Helper: convert base64 data URL to Blob
 async function dataUrlToBlob(dataUrl) {
   const response = await fetch(dataUrl);
   return response.blob();

@@ -1,13 +1,47 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
-@theme {
-  --color-msd-teal: #00857C;
-  --color-msd-teal-dark: #00665f;
-  --color-msd-teal-light: #e6f3f2;
+:root {
+  --msd-teal: #00857C;
+  --msd-teal-dark: #00665f;
+  --msd-teal-light: #e6f3f2;
+}
+
+.bg-msd-teal {
+  background-color: #00857C !important;
+}
+.bg-msd-teal-dark {
+  background-color: #00665f !important;
+}
+.bg-msd-teal-light {
+  background-color: #e6f3f2 !important;
+}
+.text-msd-teal {
+  color: #00857C !important;
+}
+.text-msd-teal-dark {
+  color: #00665f !important;
+}
+.border-msd-teal {
+  border-color: #00857C !important;
+}
+.hover\:bg-msd-teal:hover {
+  background-color: #00857C !important;
+}
+.hover\:bg-msd-teal-dark:hover {
+  background-color: #00665f !important;
+}
+.hover\:text-msd-teal:hover {
+  color: #00857C !important;
+}
+.hover\:border-msd-teal:hover {
+  border-color: #00857C !important;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-  scroll-behavior: smooth;
-  @apply bg-gray-50 text-gray-900;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: #f9fafb;
+  color: #111827;
+  min-height: 100vh;
 }

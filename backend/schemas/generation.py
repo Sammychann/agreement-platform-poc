@@ -1,22 +1,21 @@
-from datetime import date
-from typing import Literal
-from pydantic import BaseModel, EmailStr
+from typing import Any, Optional, Union
+from pydantic import BaseModel
 
 class AgreementFormData(BaseModel):
-    company_name: str
-    customer_address: str
-    contact_person_name: str
-    contact_person_designation: str
-    contact_person_email: EmailStr
-    contact_person_phone: str
-    agreement_start_date: date
-    agreement_end_date: date
-    device_name: str
-    device_serial_number: str
-    territory: str
-    agreement_value: float
-    device_ownership: Literal['customer', 'msd']
-    agreement_type: str
+    company_name: str = ""
+    customer_address: str = ""
+    contact_person_name: str = ""
+    contact_person_designation: str = ""
+    contact_person_email: str = ""
+    contact_person_phone: str = ""
+    agreement_start_date: Union[str, Any] = ""
+    agreement_end_date: Union[str, Any] = ""
+    device_name: str = ""
+    device_serial_number: str = ""
+    territory: str = ""
+    agreement_value: Union[float, int, str] = 0.0
+    device_ownership: str = "customer"
+    agreement_type: str = "pending"
 
 class SubmitResponse(BaseModel):
     entry_id: str

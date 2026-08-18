@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from docx import Document
 from docx.shared import Inches
+from PIL import Image
 
 from config import TEMPLATES_DIR, GENERATED_DIR
 
@@ -34,42 +35,70 @@ class AgreementGenerator:
             for footer_para in section.footer.paragraphs:
                 self._replace_text_in_paragraph(footer_para, placeholders)
 
+    def _normalize_image(self, img_path_str: str) -> Optional[str]:
+        if not img_path_str:
+            return None
+        img_path = Path(img_path_str)
+        if not img_path.exists():
+            return None
+        try:
+            with Image.open(img_path) as im:
+                # Re-save as clean standard PNG
+                clean_path = img_path.parent / f"norm_{img_path.name}"
+                im.convert("RGBA").save(clean_path, format="PNG")
+                return str(clean_path)
+        except Exception:
+            return str(img_path)
+
     def _embed_signatures(self, doc: Document, customer_sig: str, msd_sig: str):
-        # Look for placeholder text to insert signatures
+        clean_cust_sig = self._normalize_image(customer_sig)
+        clean_msd_sig = self._normalize_image(msd_sig)
+
+        # Replace in paragraphs
         for paragraph in doc.paragraphs:
             if '{{customer_signature}}' in paragraph.text:
                 paragraph.text = paragraph.text.replace('{{customer_signature}}', '')
-                if customer_sig and Path(customer_sig).exists():
-                    run = paragraph.add_run()
-                    run.add_picture(customer_sig, width=Inches(2.0))
+                if clean_cust_sig and Path(clean_cust_sig).exists():
+                    try:
+                        run = paragraph.add_run()
+                        run.add_picture(clean_cust_sig, width=Inches(2.0))
+                    except Exception:
+                        pass
             if '{{msd_signature}}' in paragraph.text:
                 paragraph.text = paragraph.text.replace('{{msd_signature}}', '')
-                if msd_sig and Path(msd_sig).exists():
-                    run = paragraph.add_run()
-                    run.add_picture(msd_sig, width=Inches(2.0))
+                if clean_msd_sig and Path(clean_msd_sig).exists():
+                    try:
+                        run = paragraph.add_run()
+                        run.add_picture(clean_msd_sig, width=Inches(2.0))
+                    except Exception:
+                        pass
 
-        # Tables
+        # Replace in tables
         for table in doc.tables:
             for row in table.rows:
                 for cell in row.cells:
                     for paragraph in cell.paragraphs:
                         if '{{customer_signature}}' in paragraph.text:
                             paragraph.text = paragraph.text.replace('{{customer_signature}}', '')
-                            if customer_sig and Path(customer_sig).exists():
-                                run = paragraph.add_run()
-                                run.add_picture(customer_sig, width=Inches(2.0))
+                            if clean_cust_sig and Path(clean_cust_sig).exists():
+                                try:
+                                    run = paragraph.add_run()
+                                    run.add_picture(clean_cust_sig, width=Inches(2.0))
+                                except Exception:
+                                    pass
                         if '{{msd_signature}}' in paragraph.text:
                             paragraph.text = paragraph.text.replace('{{msd_signature}}', '')
-                            if msd_sig and Path(msd_sig).exists():
-                                run = paragraph.add_run()
-                                run.add_picture(msd_sig, width=Inches(2.0))
+                            if clean_msd_sig and Path(clean_msd_sig).exists():
+                                try:
+                                    run = paragraph.add_run()
+                                    run.add_picture(clean_msd_sig, width=Inches(2.0))
+                                except Exception:
+                                    pass
 
     def generate_agreement(self, entry_id: str, form_data: Dict[str, Any], agreement_type: str, 
                            customer_signature_path: str, msd_signature_path: str) -> str:
         agreement_id = str(uuid.uuid4())
         
-        # Load template
-        # Assuming template name matches agreement type closely, e.g. "Customer Owned Standard.docx"
         template_name = f"{agreement_type}.docx"
         template_path = TEMPLATES_DIR / template_name
         
@@ -83,7 +112,6 @@ class AgreementGenerator:
         duration = ""
         if start_date and end_date:
             try:
-                # Basic duration calculation
                 if isinstance(start_date, str):
                     from datetime import datetime
                     sd = datetime.fromisoformat(start_date)
@@ -93,7 +121,6 @@ class AgreementGenerator:
             except Exception:
                 pass
 
-        # Prepare replacements
         placeholders = {
             '{{company_name}}': str(form_data.get('company_name', '')),
             '{{customer_address}}': str(form_data.get('customer_address', '')),
@@ -113,7 +140,6 @@ class AgreementGenerator:
         self._replace_placeholders(doc, placeholders)
         self._embed_signatures(doc, customer_signature_path, msd_signature_path)
         
-        # Save output
         output_filename = f"{entry_id}_{agreement_type}_{agreement_id}.docx"
         output_path = GENERATED_DIR / output_filename
         doc.save(output_path)
@@ -121,19 +147,13 @@ class AgreementGenerator:
         return agreement_id
 
     def edit_agreement(self, agreement_id: str, updated_fields: Dict[str, Any], entry: Dict[str, Any]) -> str:
-        # Assuming entry contains previous signatures and we use them, and updated_fields overrides form_data
         entry_id = entry.get('entry_id')
         agreement_type = entry.get('agreement_type')
         cust_sig = entry.get('customer_signature_path')
         msd_sig = entry.get('msd_signature_path')
         
-        # Merge fields
         form_data = {**entry, **updated_fields}
-        
-        # Generate new one
         new_agreement_id = self.generate_agreement(entry_id, form_data, agreement_type, cust_sig, msd_sig)
-        
-        # Optionally, delete old agreement here if tracked
         return new_agreement_id
 
     def get_agreement_path(self, agreement_id: str) -> Optional[Path]:
