@@ -6,10 +6,10 @@ const Landing = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="text-center mb-16">
         <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
-          MSD India Agreement Platform
+          Agreement Platform
         </h1>
         <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
-          Streamline agreement generation and validation for the sales team.
+          Streamline commercial agreement generation and document validation for sales and operations teams.
         </p>
       </div>
 
@@ -21,7 +21,7 @@ const Landing = () => {
             </div>
             <h3 className="text-2xl font-bold text-gray-900 mb-2">Generate Agreement</h3>
             <p className="text-gray-600 mb-6">
-              Create new device and service agreements. Fill out customer details, capture signatures, and instantly generate the final document.
+              Create new device and commercial agreements. Fill out customer details, capture signatures, and instantly generate the final document.
             </p>
           </div>
           <div className="px-8 pb-8">
@@ -38,7 +38,7 @@ const Landing = () => {
             </div>
             <h3 className="text-2xl font-bold text-gray-900 mb-2">Validate Agreements</h3>
             <p className="text-gray-600 mb-6">
-              Upload scanned agreements in bulk to automatically validate signatures, extracted fields, and check for discrepancies.
+              Upload scanned agreement archives in bulk to automatically validate signatures, extracted fields, and check for discrepancies.
             </p>
           </div>
           <div className="px-8 pb-8">

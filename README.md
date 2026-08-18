@@ -1,13 +1,13 @@
-# MSD India Agreement Generation & Validation Platform
+# Commercial Agreement Generation & Validation Platform
 
-An automated web platform engineered for **Merck (MSD India)** sales teams to streamline commercial agreement generation and automate batch document validation.
+An automated web platform engineered for sales teams to streamline commercial agreement generation and automate batch document validation.
 
 ---
 
 ## 📌 Description
 
-This platform automates two core operational workflows for the MSD India sales team:
-1. **Agreement Generation**: Enables sales representatives to fill out customer details, capture digital signatures (draw on canvas or upload image), automatically log submissions into Excel, and generate standardized legal agreements (`.docx`) tailored to device ownership models.
+This platform automates two core operational workflows for sales and operations teams:
+1. **Agreement Generation**: Enables sales representatives to fill out customer details, capture digital signatures (draw on canvas or upload image), automatically log submissions into Excel, and generate standardized legal agreements (`.docx`) tailored to device/product ownership models.
 2. **Agreement Validation**: Automatically inspects bulk uploaded customer agreement folders (`.zip` archives at Annual, Monthly, or Customer level) to check file presence, validate mandatory data fields across formats (`.docx`, `.xlsx`, `.pdf`, `.eml`), identify duplicate records, and produce detailed visual and exportable Excel reports (`.xlsx`).
 
 ---
@@ -16,7 +16,7 @@ This platform automates two core operational workflows for the MSD India sales t
 
 ### Frontend
 - **Framework**: React 18 + Vite
-- **Styling**: Tailwind CSS v4 (Custom MSD `#00857C` Teal Branding)
+- **Styling**: Tailwind CSS v4 (Teal Branding)
 - **Routing**: React Router DOM v6
 - **Signature Capture**: `react-signature-canvas`
 - **HTTP Client**: Axios
@@ -35,11 +35,11 @@ This platform automates two core operational workflows for the MSD India sales t
 
 ### 1. Agreement Generation Workflow
 - 📝 **14 Comprehensive Form Fields**: Captures Company Name, Address, Contact Person, Designation, Email, Phone, Start Date, End Date, Device Name/Model, Serial Number, Territory/Region, Value (₹), Device Ownership, and T&C.
-- ✍️ **Dual Signature Modes**: Interactive canvas drawing or file uploads for both Customer and MSD Authorized Signatory.
+- ✍️ **Dual Signature Modes**: Interactive canvas drawing or file uploads for both Customer and Authorized Company Signatory.
 - 📊 **Excel Audit Logging**: Automatically appends entry to `agreements_log.xlsx` upon form submission with rollback capabilities.
 - 📜 **Ownership-Based Agreement Types**:
   - **Customer Owned**: *Device Purchase Agreement*, *Annual Maintenance Contract (AMC)*
-  - **MSD Owned**: *Device Loan Agreement*, *Device Placement Agreement*
+  - **Company Owned**: *Device Loan Agreement*, *Device Placement Agreement*
 - 📄 **Preview & Edit**: Instant template substitution, inline detail updates, and `.docx`/`.pdf` download options.
 
 ### 2. Agreement Validation Workflow

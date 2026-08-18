@@ -10,7 +10,7 @@ def create_template(title: str, filename: str):
     # Header
     header = doc.add_paragraph()
     header.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    header_run = header.add_run("MSD AGREEMENT")
+    header_run = header.add_run("COMMERCIAL AGREEMENT")
     header_run.bold = True
     header_run.font.size = Pt(16)
     
@@ -25,7 +25,7 @@ def create_template(title: str, filename: str):
     
     # Parties
     doc.add_heading("1. PARTIES", level=1)
-    doc.add_paragraph("This Agreement is made on {{agreement_start_date}} between MSD and:")
+    doc.add_paragraph("This Agreement is made on {{agreement_start_date}} between the Company and:")
     doc.add_paragraph("Company Name: {{company_name}}")
     doc.add_paragraph("Address: {{customer_address}}")
     doc.add_paragraph("Contact Person: {{contact_person_name}} ({{contact_person_designation}})")
@@ -49,7 +49,7 @@ def create_template(title: str, filename: str):
     
     # Signatures
     table = doc.add_table(rows=2, cols=2)
-    table.cell(0, 0).text = "For MSD:"
+    table.cell(0, 0).text = "For Authorized Signatory:"
     table.cell(0, 1).text = "For {{company_name}}:"
     table.cell(1, 0).text = "{{msd_signature}}"
     table.cell(1, 1).text = "{{customer_signature}}"
@@ -61,8 +61,7 @@ def generate_all_templates():
         for t in types:
             filename = f"{t}.docx"
             path = TEMPLATES_DIR / filename
-            if not path.exists():
-                create_template(t, filename)
+            create_template(t, filename)
 
 if __name__ == "__main__":
     generate_all_templates()

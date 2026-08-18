@@ -9,7 +9,7 @@ from create_templates import generate_all_templates
 
 app = FastAPI(
     title="MSD Agreement Platform",
-    description="Backend API for MSD India Agreement Generation & Validation Platform",
+    description="Backend API for Commercial Agreement Generation & Validation Platform",
     version="1.0.0"
 )
 

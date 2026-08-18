@@ -125,7 +125,7 @@ const GenerationForm = () => {
             </label>
             <label className="flex items-center space-x-2 cursor-pointer">
               <input type="radio" name="device_ownership" value="MSD Owned" checked={formData.device_ownership === 'MSD Owned'} onChange={handleChange} className="text-msd-teal focus:ring-msd-teal" />
-              <span>MSD Owned</span>
+              <span>Company Owned</span>
             </label>
           </div>
         </div>
@@ -135,7 +135,7 @@ const GenerationForm = () => {
           <h3 className="text-xl font-semibold text-msd-teal mb-4 border-b pb-2">Signatures</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <SignaturePad label="Customer Signature" onSignatureChange={setCustomerSignature} required />
-            <SignaturePad label="MSD Authorized Signature" onSignatureChange={setMsdSignature} required />
+            <SignaturePad label="Company Authorized Signature" onSignatureChange={setMsdSignature} required />
           </div>
         </div>
 
