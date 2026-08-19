@@ -1,3 +1,6 @@
+/**
+ * Batch Agreement Verification & Upload Page
+ */
 import React, { useState } from 'react';
 import FileUploader from '../components/FileUploader';
 import ValidationReport from '../components/ValidationReport';

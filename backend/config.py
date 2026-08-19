@@ -30,5 +30,5 @@ FIELD_RULES = {
 # Agreement types mapping based on device ownership
 AGREEMENT_TYPES = {
     'customer': ['Device Purchase Agreement', 'Annual Maintenance Contract'],
-    'msd': ['Device Loan Agreement', 'Device Placement Agreement']
+    'company': ['Device Loan Agreement', 'Device Placement Agreement']
 }

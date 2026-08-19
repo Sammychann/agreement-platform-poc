@@ -1,3 +1,6 @@
+/**
+ * Agreement Batch Validation Report Component
+ */
 import React, { useState } from 'react';
 
 const ValidationReport = ({ report }) => {

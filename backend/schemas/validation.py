@@ -1,3 +1,5 @@
+"""Schemas for document validation results."""
+
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel

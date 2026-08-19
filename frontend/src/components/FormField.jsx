@@ -1,3 +1,6 @@
+/**
+ * Standard Form Field Input Component
+ */
 import React from 'react';
 
 const FormField = ({ label, type = 'text', name, value, onChange, required = false, error, placeholder = '', options = [] }) => {

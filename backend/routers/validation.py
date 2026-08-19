@@ -1,3 +1,5 @@
+"""Validation endpoints for batch agreement document verification."""
+
 import shutil
 import uuid
 from pathlib import Path

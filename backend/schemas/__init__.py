@@ -1,1 +1,1 @@
-# Make folder a package
+"""Pydantic data schemas."""

@@ -1,1 +1,1 @@
-# Make folder a package
+"""Backend business logic and helper services."""

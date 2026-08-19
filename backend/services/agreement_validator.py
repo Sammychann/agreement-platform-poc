@@ -1,3 +1,5 @@
+"""Agreement document validation service for batch ZIP archives."""
+
 import zipfile
 import uuid
 import shutil

@@ -1,3 +1,6 @@
+/**
+ * Drag-and-drop file uploader component
+ */
 import React, { useRef, useState } from 'react';
 
 const FileUploader = ({ onFileSelect, accept = ".zip", label = "Upload File" }) => {

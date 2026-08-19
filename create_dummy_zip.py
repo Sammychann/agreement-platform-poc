@@ -4,8 +4,8 @@ from docx import Document
 from pathlib import Path
 import os
 
-base_dir = Path(r"c:\Users\Admin\Desktop\agreement poc\temp_dummy_data")
-zip_output = Path(r"c:\Users\Admin\Desktop\agreement poc\sample_validation_data.zip")
+base_dir = Path(__file__).resolve().parent / "temp_dummy_data"
+zip_output = Path(__file__).resolve().parent / "sample_validation_data.zip"
 
 # Clean temp directory
 if base_dir.exists():
@@ -49,7 +49,7 @@ po1.save(co1_dir / "purchase_order.docx")
 # 4. Email (.docx)
 em1 = Document()
 em1.add_heading("EMAIL CORRESPONDENCE", level=1)
-em1.add_paragraph("Sender: sales@msd.com")
+em1.add_paragraph("Sender: sales@company.com")
 em1.add_paragraph("Recipient: procurement@apollopharmacy.com")
 em1.add_paragraph("Subject: Agreement & Invoice Confirmation for Apollo Pharmacy")
 em1.save(co1_dir / "email.docx")
