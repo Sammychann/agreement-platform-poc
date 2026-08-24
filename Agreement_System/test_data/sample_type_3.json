@@ -1,0 +1,17 @@
+{
+  "customer_name": "Max Care Institute of Medical Sciences",
+  "distributor_name": "MedTech Logistics & Distribution Pvt Ltd",
+  "customer_id": "CUST-IND-2026-042",
+  "customer_address": "55 Healthcare Boulevard, Outer Ring Road, Bengaluru, Karnataka 560103",
+  "contact_person": "Dr. Vikram Singhania",
+  "contact_email": "procurement@maxcare.org",
+  "agreement_date": "2026-06-10",
+  "start_date": "2026-06-15",
+  "end_date": "2027-06-14",
+  "equipment_name": "Precision Surgical Laser Console 400",
+  "equipment_details": "400W Multi-wavelength surgical laser system with articulated arm & optical fibers",
+  "quantity": "1",
+  "serial_number": "SN-LASER-2026-5502",
+  "agreement_value": "₹ 3,200,000",
+  "device_ownership": "Customer Ownership"
+}

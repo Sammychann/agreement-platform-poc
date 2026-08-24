@@ -1,0 +1,17 @@
+{
+  "customer_name": "Pristyn Aesthetics & Wellness Centre",
+  "distributor_name": "Prime Care Distribution Network LLP",
+  "customer_id": "CUST-INDIRECT-INN-088",
+  "customer_address": "12th Floor, Tower B, Bandra Kurla Complex, Mumbai, Maharashtra 400051",
+  "contact_person": "Dr. Rohan Mehta",
+  "contact_email": "rohan.mehta@pristynmed.com",
+  "agreement_date": "2026-07-01",
+  "start_date": "2026-07-15",
+  "end_date": "2028-07-14",
+  "equipment_name": "Innoject Pro Medical Dispensing Station",
+  "equipment_details": "Automated delivery station with touch-screen controller and continuous feed unit",
+  "quantity": "2",
+  "serial_number": "INN-PRO-IND-2026-904 / INN-PRO-IND-2026-905",
+  "agreement_value": "₹ 95,000 / month per unit",
+  "device_ownership": "Company Ownership"
+}

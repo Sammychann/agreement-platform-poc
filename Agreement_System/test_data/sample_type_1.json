@@ -1,0 +1,16 @@
+{
+  "customer_name": "Apollo Hospitals Enterprise Ltd",
+  "customer_id": "CUST-2026-001",
+  "customer_address": "Greams Lane, 21 Greams Road, Thousand Lights, Chennai, Tamil Nadu 600006",
+  "contact_person": "Dr. Rajesh Sharma",
+  "contact_email": "rajesh.sharma@apollohospitals.com",
+  "agreement_date": "2026-04-01",
+  "start_date": "2026-04-01",
+  "end_date": "2027-03-31",
+  "equipment_name": "Advanced Diagnostic Imaging Scanner Model X500",
+  "equipment_details": "High-resolution digital diagnostic scanner console with dual ultrasound probes & calibration kit",
+  "quantity": "2",
+  "serial_number": "SN-DX500-2026-9988 / SN-DX500-2026-9989",
+  "agreement_value": "₹ 7,500,000",
+  "device_ownership": "Customer Ownership"
+}

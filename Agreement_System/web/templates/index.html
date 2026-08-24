@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Commercial Agreement Management System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Top Navigation Bar -->
+    <header class="app-header">
+        <div class="header-container">
+            <div class="brand-group">
+                <div class="brand-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                </div>
+                <div class="brand-info">
+                    <h1>Agreement Management System</h1>
+                    <span class="brand-badge">Phase 1: Generation Engine Active</span>
+                </div>
+            </div>
+            <div class="header-status">
+                <span class="status-indicator">
+                    <span class="pulse-dot"></span> Local Python Environment
+                </span>
+                <span class="version-tag">v1.0.0</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Phase Navigation Bar -->
+    <nav class="phase-navbar">
+        <div class="phase-nav-container">
+            <button class="nav-tab active" data-tab="tab-generation" id="tabNavGeneration">
+                <span class="tab-number">1</span>
+                <span class="tab-text">Agreement Generation</span>
+                <span class="tab-badge active">Active</span>
+            </button>
+            <button class="nav-tab" data-tab="tab-validation" id="tabNavValidation">
+                <span class="tab-number">2</span>
+                <span class="tab-text">Agreement Validation</span>
+                <span class="tab-badge">Phase 2</span>
+            </button>
+            <button class="nav-tab" data-tab="tab-dates" id="tabNavDates">
+                <span class="tab-number">3</span>
+                <span class="tab-text">Date Validation</span>
+                <span class="tab-badge">Phase 3</span>
+            </button>
+            <button class="nav-tab" data-tab="tab-folders" id="tabNavFolders">
+                <span class="tab-number">4</span>
+                <span class="tab-text">Folder Completeness</span>
+                <span class="tab-badge">Phase 4</span>
+            </button>
+            <button class="nav-tab" data-tab="tab-matching" id="tabNavMatching">
+                <span class="tab-number">5</span>
+                <span class="tab-text">Approval Matching</span>
+                <span class="tab-badge">Phase 5</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="app-main">
+        <!-- ============================================================= -->
+        <!-- TAB 1: AGREEMENT GENERATION (MAIN WORKSPACE) -->
+        <!-- ============================================================= -->
+        <section id="tab-generation" class="tab-content active">
+            <!-- Top Step Guide / Overview Banner -->
+            <div class="generation-banner">
+                <div class="banner-text">
+                    <h2>Generate Standardized Commercial Agreement</h2>
+                    <p>Select an agreement type, populate required dynamic fields, and generate client-ready Word (.docx) and PDF files with 100% clause fidelity.</p>
+                </div>
+                <div class="banner-source-tag">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    </svg>
+                    <span>Word Template = Source of Truth</span>
+                </div>
+            </div>
+
+            <!-- Workspace Grid (Left: Form, Right: Output & Preview) -->
+            <div class="workspace-grid">
+                <!-- LEFT COLUMN: Form & Template Selection -->
+                <div class="workspace-card form-card">
+                    <!-- Step 1: Agreement Type Selector -->
+                    <div class="card-section">
+                        <div class="section-title-row">
+                            <span class="step-num">Step 1</span>
+                            <h3>Select Agreement Type</h3>
+                        </div>
+                        <p class="section-desc">Choose the agreement model corresponding to the customer engagement:</p>
+                        
+                        <div class="template-selector-grid" id="templateSelectorGrid">
+                            {% for key, type_info in agreement_types.items() %}
+                            <div class="template-option-card {% if loop.first %}selected{% endif %}" data-type-id="{{ key }}" id="card-{{ key }}">
+                                <div class="card-radio-indicator"></div>
+                                <div class="template-card-content">
+                                    <div class="template-card-header">
+                                        <h4>{{ type_info.name }}</h4>
+                                        <span class="category-pill">{{ type_info.category }}</span>
+                                    </div>
+                                    <p class="template-desc">{{ type_info.description }}</p>
+                                    <div class="template-file-tag">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                            <polyline points="14 2 14 8 20 8"></polyline>
+                                        </svg>
+                                        <code>{{ type_info.template_file }}</code>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Dynamic Input Form -->
+                    <div class="card-section border-top">
+                        <div class="section-title-row justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="step-num">Step 2</span>
+                                <h3>Enter Agreement Details</h3>
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btnAutofillSample">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                    <line x1="12" y1="18" x2="12" y2="12"></line>
+                                    <line x1="9" y1="15" x2="15" y2="15"></line>
+                                </svg>
+                                Fill Sample Test Data
+                            </button>
+                        </div>
+                        <p class="section-desc">Populate the dynamic parameters below. Fixed clauses and template formatting will be strictly preserved.</p>
+
+                        <!-- Error Alert Box -->
+                        <div class="alert-box error-alert hidden" id="formErrorAlert">
+                            <div class="alert-icon">⚠️</div>
+                            <div class="alert-content">
+                                <strong id="alertErrorTitle">Validation Error</strong>
+                                <ul id="alertErrorList"></ul>
+                            </div>
+                        </div>
+
+                        <!-- Dynamic Form Container -->
+                        <form id="agreementForm" class="dynamic-form-grid" novalidate>
+                            <!-- Fields injected dynamically by app.js -->
+                            <div class="form-loader" id="formLoader">Loading field configuration...</div>
+                        </form>
+
+                        <!-- Submit Button Action -->
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-primary btn-lg w-full" id="btnGenerateAgreement">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <span>Generate Word & PDF Agreement</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT COLUMN: Output, Action Center & Live Preview -->
+                <div class="workspace-card output-card">
+                    <div class="card-section">
+                        <div class="section-title-row">
+                            <span class="step-num green">Step 3</span>
+                            <h3>Generated Agreement Output</h3>
+                        </div>
+                        <p class="section-desc">View generated results, inspect preview text, and download final files:</p>
+
+                        <!-- Empty State (Before Generation) -->
+                        <div class="output-empty-state" id="outputEmptyState">
+                            <div class="empty-state-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                                    <polyline points="10 9 9 9 8 9"></polyline>
+                                </svg>
+                            </div>
+                            <h4>No Agreement Generated Yet</h4>
+                            <p>Select an agreement type on the left, complete the mandatory fields (or click "Fill Sample Test Data"), and click <strong>Generate</strong>.</p>
+                        </div>
+
+                        <!-- Active Generation Result Panel (Hidden by default) -->
+                        <div class="output-result-panel hidden" id="outputResultPanel">
+                            <!-- Success Banner -->
+                            <div class="generation-success-card">
+                                <div class="success-icon">✓</div>
+                                <div class="success-info">
+                                    <h4>Agreement Successfully Generated!</h4>
+                                    <p id="resultAgreementTitle">Direct Agreement - Customer Ownership</p>
+                                    <div class="result-meta">
+                                        <span id="resultTemplateUsed">Template: Template_1.docx</span>
+                                        <span>•</span>
+                                        <span id="resultGeneratedTime">Just now</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Download Action Buttons -->
+                            <div class="download-action-grid">
+                                <a href="#" id="btnDownloadDocx" class="download-card docx-download" target="_blank">
+                                    <div class="download-card-icon docx-icon">
+                                        <span>W</span>
+                                    </div>
+                                    <div class="download-card-text">
+                                        <span class="file-format-label">Word Document</span>
+                                        <strong id="labelDocxFilename">agreement.docx</strong>
+                                        <span class="download-hint">Click to download (.docx)</span>
+                                    </div>
+                                    <div class="download-arrow">↓</div>
+                                </a>
+
+                                <a href="#" id="btnDownloadPdf" class="download-card pdf-download" target="_blank">
+                                    <div class="download-card-icon pdf-icon">
+                                        <span>PDF</span>
+                                    </div>
+                                    <div class="download-card-text">
+                                        <span class="file-format-label">PDF Document</span>
+                                        <strong id="labelPdfFilename">agreement.pdf</strong>
+                                        <span class="download-hint">Click to download (.pdf)</span>
+                                    </div>
+                                    <div class="download-arrow">↓</div>
+                                </a>
+                            </div>
+
+                            <!-- Preview Header with Fullscreen trigger -->
+                            <div class="preview-header-bar">
+                                <div class="flex items-center gap-2">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                    <h4>Document Text & Structure Preview</h4>
+                                </div>
+                                <button type="button" class="btn btn-ghost btn-sm" id="btnOpenModalPreview">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="15 3 21 3 21 9"></polyline>
+                                        <polyline points="9 21 3 21 3 15"></polyline>
+                                        <line x1="21" y1="3" x2="14" y2="10"></line>
+                                        <line x1="3" y1="21" x2="10" y2="14"></line>
+                                    </svg>
+                                    Full Preview
+                                </button>
+                            </div>
+
+                            <!-- In-card Preview Container -->
+                            <div class="document-preview-container" id="previewContainer">
+                                <div class="preview-document-paper" id="previewPaperContent">
+                                    <!-- Rendered document blocks -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- TAB 2: PHASE 2 - AGREEMENT VALIDATION (ROADMAP / BLUEPRINT) -->
+        <!-- ============================================================= -->
+        <section id="tab-validation" class="tab-content">
+            <div class="phase-roadmap-card">
+                <div class="phase-roadmap-header">
+                    <div class="phase-badge-lg">Phase 2 Module</div>
+                    <h2>Agreement Validation Rule Engine</h2>
+                    <p>Automated inspection of generated and legacy PDF agreements against 10 critical commercial compliance rules.</p>
+                </div>
+
+                <div class="rules-grid">
+                    <div class="rule-item-card">
+                        <span class="rule-num">Rule 01</span>
+                        <h4>Customer Identification</h4>
+                        <p>Verifies legal company/customer name and ERP customer account code.</p>
+                        <span class="rule-status-badge">Blueprint Ready</span>
+                    </div>
+                    <div class="rule-item-card">
+                        <span class="rule-num">Rule 02</span>
+                        <h4>Billing & Installation Address</h4>
+                        <p>Ensures registered physical address is completely captured.</p>
+                        <span class="rule-status-badge">Blueprint Ready</span>
+                    </div>
+                    <div class="rule-item-card">
+                        <span class="rule-num">Rule 03</span>
+                        <h4>Equipment / Device Name</h4>
+                        <p>Matches device name against approved commercial product catalog.</p>
+                        <span class="rule-status-badge">Blueprint Ready</span>
+                    </div>
+                    <div class="rule-item-card">
+                        <span class="rule-num">Rule 04</span>
+                        <h4>Quantity & Unit Validation</h4>
+                        <p>Validates numerical unit quantity is non-zero and formatted properly.</p>
+                        <span class="rule-status-badge">Blueprint Ready</span>
+                    </div>
+                    <div class="rule-item-card">
+                        <span class="rule-num">Rule 05</span>
+                        <h4>Serial Number Format</h4>
+                        <p>Checks manufacturing serial tag format and checks for duplicates.</p>
+                        <span class="rule-status-badge">Blueprint Ready</span>
+                    </div>
+                    <div class="rule-item-card">
+                        <span class="rule-num">Rule 06</span>
+                        <h4>Commercial Value & Currency</h4>
+                        <p>Verifies total consideration amount, currency symbol, and payment terms.</p>
+                        <span class="rule-status-badge">Blueprint Ready</span>
+                    </div>
+                    <div class="rule-item-card">
+                        <span class="rule-num">Rule 07</span>
+                        <h4>Agreement Execution Dates</h4>
+                        <p>Ensures agreement execution, start, and end dates are specified.</p>
+                        <span class="rule-status-badge">Blueprint Ready</span>
+                    </div>
+                    <div class="rule-item-card">
+                        <span class="rule-num">Rule 08</span>
+                        <h4>Device Ownership Model</h4>
+                        <p>Verifies explicit Customer vs Company Ownership classification.</p>
+                        <span class="rule-status-badge">Blueprint Ready</span>
+                    </div>
+                    <div class="rule-item-card">
+                        <span class="rule-num">Rule 09</span>
+                        <h4>Signature Blocks</h4>
+                        <p>Inspects execution blocks for customer and authorized company signature.</p>
+                        <span class="rule-status-badge">Blueprint Ready</span>
+                    </div>
+                    <div class="rule-item-card">
+                        <span class="rule-num">Rule 10</span>
+                        <h4>Distributor Partner Details</h4>
+                        <p>Validates channel partner name for tripartite indirect agreements.</p>
+                        <span class="rule-status-badge">Blueprint Ready</span>
+                    </div>
+                </div>
+
+                <div class="blueprint-code-preview">
+                    <h4>Python Module Architecture (agreement_validation.py)</h4>
+                    <pre><code># Available function ready for implementation:
+from agreement_validation import validate_agreement_document
+
+result = validate_agreement_document("output/Apollo_Hospitals_type_1_20260401.docx")
+# Returns: {'status': 'COMPLETE' | 'INCOMPLETE' | 'ACTION REQUIRED', 'checks': [...]}</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- TAB 3: PHASE 3 - DATE VALIDATION (ROADMAP / BLUEPRINT) -->
+        <!-- ============================================================= -->
+        <section id="tab-dates" class="tab-content">
+            <div class="phase-roadmap-card">
+                <div class="phase-roadmap-header">
+                    <div class="phase-badge-lg">Phase 3 Module</div>
+                    <h2>Chronological Date Validation</h2>
+                    <p>Enforces strict timeline integrity between internal email approvals, agreement execution, and contract duration.</p>
+                </div>
+
+                <div class="timeline-visual">
+                    <div class="timeline-step">
+                        <div class="timeline-circle">1</div>
+                        <h4>Approval Mail Date</h4>
+                        <p>Internal business & finance authorization</p>
+                    </div>
+                    <div class="timeline-connector">≤</div>
+                    <div class="timeline-step">
+                        <div class="timeline-circle">2</div>
+                        <h4>Agreement Signing Date</h4>
+                        <p>Contract execution with customer</p>
+                    </div>
+                    <div class="timeline-connector">≤</div>
+                    <div class="timeline-step">
+                        <div class="timeline-circle">3</div>
+                        <h4>Effective Start Date</h4>
+                        <p>Commencement of agreement term</p>
+                    </div>
+                    <div class="timeline-connector">&lt;</div>
+                    <div class="timeline-step">
+                        <div class="timeline-circle">4</div>
+                        <h4>Contract End Date</h4>
+                        <p>Expiration of warranty or placement</p>
+                    </div>
+                </div>
+
+                <div class="blueprint-code-preview">
+                    <h4>Python Module Architecture (date_validation.py)</h4>
+                    <pre><code># Available function ready for implementation:
+from date_validation import validate_agreement_dates
+
+check = validate_agreement_dates(
+    approval_date_str="2026-03-25",
+    agreement_date_str="2026-04-01",
+    start_date_str="2026-04-01",
+    end_date_str="2027-03-31"
+)
+# Returns: {'status': 'COMPLETE', 'is_valid': True, 'errors': [], 'warnings': []}</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- TAB 4: PHASE 4 - FOLDER COMPLETENESS (ROADMAP / BLUEPRINT) -->
+        <!-- ============================================================= -->
+        <section id="tab-folders" class="tab-content">
+            <div class="phase-roadmap-card">
+                <div class="phase-roadmap-header">
+                    <div class="phase-badge-lg">Phase 4 Module</div>
+                    <h2>Customer Folder Completeness Scanner</h2>
+                    <p>Scans customer audit directories to ensure each customer folder contains all 4 mandatory business files.</p>
+                </div>
+
+                <div class="four-doc-grid">
+                    <div class="doc-card">
+                        <div class="doc-badge pdf">1. Agreement PDF</div>
+                        <p>Signed commercial agreement or contract document (*agreement*.pdf)</p>
+                    </div>
+                    <div class="doc-card">
+                        <div class="doc-badge pdf">2. Installation Report PDF</div>
+                        <p>Field engineer commissioning and handover protocol (*installation*.pdf)</p>
+                    </div>
+                    <div class="doc-card">
+                        <div class="doc-badge eml">3. Approval Mail PDF</div>
+                        <p>Management & finance deal approval record (*approval*.pdf / .eml)</p>
+                    </div>
+                    <div class="doc-card">
+                        <div class="doc-badge xls">4. Finance Excel File</div>
+                        <p>Commercial pricing sheet or billing schedule (*finance*.xlsx)</p>
+                    </div>
+                </div>
+
+                <div class="blueprint-code-preview">
+                    <h4>Python Module Architecture (folder_validation.py)</h4>
+                    <pre><code># Available function ready for implementation:
+from folder_validation import validate_customer_folder, scan_parent_directory
+
+report = validate_customer_folder("Customer_A/")
+# If all 4 files present -> 'COMPLETE'
+# If missing Approval Mail -> 'INCOMPLETE - Missing: Approval Mail PDF'</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- TAB 5: PHASE 5 - APPROVAL MATCHING (ROADMAP) -->
+        <!-- ============================================================= -->
+        <section id="tab-matching" class="tab-content">
+            <div class="phase-roadmap-card">
+                <div class="phase-roadmap-header">
+                    <div class="phase-badge-lg">Phase 5 Module</div>
+                    <h2>Approval Mail & Agreement Reconciliation</h2>
+                    <p>Future reconciliation module to cross-verify customer name, device models, quantities, and pricing against approval records.</p>
+                </div>
+                <div class="blueprint-code-preview">
+                    <h4>Future Reconciliation Workflow</h4>
+                    <pre><code># Planned reconciliation workflow:
+# 1. Parse Customer Name & Device Quantity from Approval Mail
+# 2. Parse Customer Name & Device Quantity from Agreement Document
+# 3. Highlight any mismatches in quantity, pricing, or device serial numbers</code></pre>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Fullscreen Document Preview Modal -->
+    <div class="modal-backdrop hidden" id="previewModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <div class="flex items-center gap-2">
+                    <span class="modal-badge">Document Preview</span>
+                    <h3 id="modalDocTitle">Agreement Preview</h3>
+                </div>
+                <button type="button" class="btn-close-modal" id="btnCloseModal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="preview-document-paper" id="modalPaperContent">
+                    <!-- Modal preview content -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="btnModalCloseSecondary">Close Preview</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/app.js"></script>
+</body>
+</html>
