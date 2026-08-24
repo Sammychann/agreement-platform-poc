@@ -27,8 +27,15 @@ FIELD_RULES = {
     'email': ['sender', 'recipient', 'subject']
 }
 
-# Agreement types mapping based on device ownership
+# Agreement types mapping based on distribution model
 AGREEMENT_TYPES = {
-    'customer': ['Device Purchase Agreement', 'Annual Maintenance Contract'],
-    'company': ['Device Loan Agreement', 'Device Placement Agreement']
+    'direct': [
+        'Direct Agreement Template-Customer ownership',
+        'Direct Agreement Template-Innoject Pro'
+    ],
+    'indirect': [
+        'Indirect Agreement Template-Customer Ownership',
+        'Indirect Agreement Template-Innoject Pro'
+    ]
 }
+

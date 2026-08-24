@@ -4,14 +4,10 @@ const api = axios.create({
   baseURL: '/api',
 });
 
-export const submitForm = async (formData, customerSignatureDataUrl, msdSignatureDataUrl) => {
+export const submitForm = async (formData, customerSignatureDataUrl, intervetSignatureDataUrl) => {
   const multipart = new FormData();
 
   const payload = { ...formData };
-  if (payload.device_ownership === 'Customer Owned') payload.device_ownership = 'customer';
-  if (payload.device_ownership === 'Company Owned' || payload.device_ownership === 'MSD Owned') payload.device_ownership = 'msd';
-  if (payload.agreement_value) payload.agreement_value = parseFloat(payload.agreement_value);
-  if (!payload.agreement_type) payload.agreement_type = 'pending';
   
   multipart.append('form_data', JSON.stringify(payload));
 
@@ -19,9 +15,9 @@ export const submitForm = async (formData, customerSignatureDataUrl, msdSignatur
     const customerBlob = await dataUrlToBlob(customerSignatureDataUrl);
     multipart.append('customer_signature', customerBlob, 'customer_signature.png');
   }
-  if (msdSignatureDataUrl) {
-    const msdBlob = await dataUrlToBlob(msdSignatureDataUrl);
-    multipart.append('msd_signature', msdBlob, 'msd_signature.png');
+  if (intervetSignatureDataUrl) {
+    const intervetBlob = await dataUrlToBlob(intervetSignatureDataUrl);
+    multipart.append('intervet_signature', intervetBlob, 'intervet_signature.png');
   }
 
   const response = await api.post('/generate/submit', multipart, {

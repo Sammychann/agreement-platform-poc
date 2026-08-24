@@ -1,20 +1,19 @@
 import React, { useRef, useState, useEffect } from 'react';
 
-const SignaturePad = ({ label, onSignatureChange, required }) => {
+const SignaturePad = ({ label, onSignatureChange, required = false, subtitle = '' }) => {
   const [mode, setMode] = useState('draw'); // 'draw' or 'upload'
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
 
-  // Initialize canvas context
   useEffect(() => {
     if (mode === 'draw' && canvasRef.current) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       ctx.lineCap = 'round';
-      ctx.strokeStyle = '#000000';
+      ctx.strokeStyle = '#0f172a';
     }
   }, [mode]);
 
@@ -86,35 +85,54 @@ const SignaturePad = ({ label, onSignatureChange, required }) => {
   };
 
   return (
-    <div className="flex flex-col space-y-2">
-      <label className="block text-sm font-medium text-gray-700">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
+    <div className="flex flex-col space-y-2 bg-gray-50/50 p-4 rounded-xl border border-gray-200">
+      <div className="flex items-center justify-between">
+        <label className="block text-sm font-bold text-gray-800">
+          {label}
+        </label>
+        {required ? (
+          <span className="bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+            Mandatory *
+          </span>
+        ) : (
+          <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+            Optional (Can sign later)
+          </span>
+        )}
+      </div>
+
+      {subtitle && (
+        <p className="text-xs text-gray-500">{subtitle}</p>
+      )}
       
-      <div className="flex space-x-2 mb-2">
+      <div className="flex space-x-2 my-1">
         <button 
           type="button"
           onClick={() => { setMode('draw'); clear(); }}
-          className={`px-3 py-1 text-sm font-medium rounded transition-colors ${mode === 'draw' ? 'bg-msd-teal text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+          className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+            mode === 'draw' ? 'bg-msd-teal text-white shadow-2xs' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          }`}
         >
-          ✏️ Draw
+          ✏️ Draw Signature
         </button>
         <button 
           type="button"
           onClick={() => { setMode('upload'); clear(); }}
-          className={`px-3 py-1 text-sm font-medium rounded transition-colors ${mode === 'upload' ? 'bg-msd-teal text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+          className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+            mode === 'upload' ? 'bg-msd-teal text-white shadow-2xs' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          }`}
         >
           📁 Upload Image
         </button>
       </div>
 
       {mode === 'draw' ? (
-        <div className="border-2 border-gray-300 border-dashed rounded-lg bg-white relative overflow-hidden">
+        <div className="border-2 border-gray-300 border-dashed rounded-lg bg-white relative overflow-hidden shadow-2xs">
           <canvas 
             ref={canvasRef}
             width={400}
-            height={160}
-            className="w-full h-40 touch-none cursor-crosshair block"
+            height={150}
+            className="w-full h-36 touch-none cursor-crosshair block"
             onMouseDown={startDrawing}
             onMouseMove={draw}
             onMouseUp={stopDrawing}
@@ -127,19 +145,19 @@ const SignaturePad = ({ label, onSignatureChange, required }) => {
             <button 
               type="button"
               onClick={clear}
-              className="absolute top-2 right-2 text-xs bg-gray-100 hover:bg-red-50 text-gray-600 hover:text-red-600 px-2 py-1 rounded border border-gray-300 transition-colors"
+              className="absolute top-2 right-2 text-xs bg-white hover:bg-red-50 text-gray-600 hover:text-red-600 px-2 py-1 rounded border border-gray-300 shadow-2xs transition-colors"
             >
               Clear
             </button>
           )}
           {!hasSignature && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-gray-400 text-xs">
-              Draw signature here using mouse or touch
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-gray-400 text-xs font-medium">
+              ✍️ Draw signature here using mouse or touch
             </div>
           )}
         </div>
       ) : (
-        <div className="border-2 border-gray-300 border-dashed rounded-lg bg-gray-50 p-4 h-40 flex flex-col items-center justify-center relative">
+        <div className="border-2 border-gray-300 border-dashed rounded-lg bg-white p-4 h-36 flex flex-col items-center justify-center relative shadow-2xs">
           {previewUrl ? (
              <>
                <img src={previewUrl} alt="Signature Preview" className="max-h-full max-w-full object-contain" />
@@ -157,9 +175,9 @@ const SignaturePad = ({ label, onSignatureChange, required }) => {
                 type="file" 
                 accept="image/png, image/jpeg" 
                 onChange={handleFileUpload}
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-msd-teal-light file:text-msd-teal hover:file:bg-gray-200"
+                className="block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-msd-teal-light file:text-msd-teal hover:file:bg-gray-200 cursor-pointer"
               />
-              <p className="mt-2 text-xs text-gray-500">PNG, JPG image file</p>
+              <p className="mt-1 text-2xs text-gray-400">Supported formats: PNG, JPG, JPEG</p>
             </div>
           )}
         </div>

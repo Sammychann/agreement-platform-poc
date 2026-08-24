@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 
 from routers import generation, validation
 from config import GENERATED_DIR, TEMPLATES_DIR, DATA_DIR, SIGNATURES_DIR, TEMP_DIR
-from create_templates import generate_all_templates
+from create_agreement_templates import generate_all_templates
 
 app = FastAPI(
     title="MSD Agreement Platform",

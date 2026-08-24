@@ -4,7 +4,7 @@ import uuid
 import logging
 from pathlib import Path
 from typing import Optional, Dict, Any
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse
 
 from config import SIGNATURES_DIR, GENERATED_DIR
@@ -20,7 +20,8 @@ router = APIRouter(prefix="/api/generate", tags=["Generation"])
 async def submit_form(
     form_data: str = Form(...),
     customer_signature: Optional[UploadFile] = File(None),
-    msd_signature: Optional[UploadFile] = File(None)
+    intervet_signature: Optional[UploadFile] = File(None),
+    msd_signature: Optional[UploadFile] = File(None)  # Alias for intervet_signature
 ):
     try:
         data_dict = json.loads(form_data)
@@ -29,6 +30,14 @@ async def submit_form(
         logger.error(f"Form data validation error: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Invalid form data: {str(e)}")
 
+    # Check mandatory Intervet signature
+    actual_intervet_sig = intervet_signature or msd_signature
+    if not actual_intervet_sig:
+        raise HTTPException(
+            status_code=400,
+            detail="Intervet India Private Limited signature is mandatory and must be uploaded."
+        )
+
     entry_id = str(uuid.uuid4())
     sig_dir = SIGNATURES_DIR / entry_id
     sig_dir.mkdir(parents=True, exist_ok=True)
@@ -36,25 +45,43 @@ async def submit_form(
     signatures_info = {}
     
     try:
-        if customer_signature:
+        if customer_signature and customer_signature.filename:
             cust_filename = customer_signature.filename or "customer_signature.png"
             cust_path = sig_dir / f"customer_{cust_filename}"
             with cust_path.open("wb") as buffer:
                 shutil.copyfileobj(customer_signature.file, buffer)
             signatures_info["customer_signature"] = str(cust_path)
             
-        if msd_signature:
-            msd_filename = msd_signature.filename or "msd_signature.png"
-            msd_path = sig_dir / f"msd_{msd_filename}"
-            with msd_path.open("wb") as buffer:
-                shutil.copyfileobj(msd_signature.file, buffer)
-            signatures_info["msd_signature"] = str(msd_path)
+        if actual_intervet_sig and actual_intervet_sig.filename:
+            intervet_filename = actual_intervet_sig.filename or "intervet_signature.png"
+            intervet_path = sig_dir / f"intervet_{intervet_filename}"
+            with intervet_path.open("wb") as buffer:
+                shutil.copyfileobj(actual_intervet_sig.file, buffer)
+            signatures_info["intervet_signature"] = str(intervet_path)
 
+        # Log into Excel
         actual_entry_id = excel_logger.log_entry(parsed_data, signatures_info, entry_id=entry_id)
-        return SubmitResponse(entry_id=actual_entry_id, message="Form submitted successfully")
         
+        # Automatically generate agreement document
+        agreement_id = agreement_generator.generate_agreement(
+            entry_id=actual_entry_id,
+            form_data=parsed_data.dict(),
+            agreement_type=parsed_data.agreement_type,
+            customer_signature_path=signatures_info.get("customer_signature"),
+            intervet_signature_path=signatures_info.get("intervet_signature", "")
+        )
+
+        return SubmitResponse(
+            entry_id=actual_entry_id,
+            agreement_id=agreement_id,
+            message="Agreement generated successfully",
+            preview_url=f"/api/generate/preview/{agreement_id}"
+        )
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.exception("Error during form submission")
+        logger.exception("Error during form submission / generation")
         raise HTTPException(status_code=500, detail=f"Failed to submit form: {str(e)}")
 
 @router.post("/create/{entry_id}", response_model=GenerateResponse)
@@ -67,20 +94,19 @@ async def create_agreement(entry_id: str, body: Dict[str, str]):
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
         
-    # Save selected agreement type to Excel log
     excel_logger.update_entry(entry_id, {"agreement_type": agreement_type})
     entry["agreement_type"] = agreement_type
     
     cust_sig = entry.get("customer_signature_path", "")
-    msd_sig = entry.get("msd_signature_path", "")
+    intervet_sig = entry.get("intervet_signature_path", "") or entry.get("msd_signature_path", "")
     
     try:
         agreement_id = agreement_generator.generate_agreement(
             entry_id=entry_id,
             form_data=entry,
             agreement_type=agreement_type,
-            customer_signature_path=cust_sig,
-            msd_signature_path=msd_sig
+            customer_signature_path=cust_sig if cust_sig else None,
+            intervet_signature_path=intervet_sig
         )
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -101,11 +127,12 @@ async def get_agreement_details(agreement_id: str):
         raise HTTPException(status_code=404, detail="Agreement not found")
         
     filename = path.name
-    parts = filename.split('_')
+    # Filename format: {entry_id}_{agreement_type}_{agreement_id}.docx
+    parts = filename.replace('.docx', '').split('_')
     if len(parts) < 3:
         raise HTTPException(status_code=500, detail="Invalid agreement file format")
     entry_id = parts[0]
-    agreement_type = parts[1]
+    agreement_type = "_".join(parts[1:-1])  # in case type contains underscores
     
     entry = excel_logger.get_entry(entry_id)
     if not entry:
@@ -113,7 +140,7 @@ async def get_agreement_details(agreement_id: str):
         
     result = dict(entry)
     result["agreement_id"] = agreement_id
-    result["agreement_type"] = agreement_type
+    result["agreement_type"] = result.get("agreement_type") or agreement_type
     return result
 
 @router.get("/preview/{agreement_id}")
@@ -135,17 +162,17 @@ async def edit_agreement(agreement_id: str, updated_fields: Dict[str, Any]):
         raise HTTPException(status_code=404, detail="Agreement not found")
         
     filename = path.name
-    parts = filename.split('_')
+    parts = filename.replace('.docx', '').split('_')
     if len(parts) < 3:
         raise HTTPException(status_code=500, detail="Invalid agreement file format")
     entry_id = parts[0]
-    agreement_type = parts[1]
+    agreement_type = "_".join(parts[1:-1])
     
     entry = excel_logger.get_entry(entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Original entry not found")
     
-    # Save edits back to Excel log as well
+    # Update Excel log
     excel_logger.update_entry(entry_id, updated_fields)
     
     if "agreement_type" not in updated_fields:

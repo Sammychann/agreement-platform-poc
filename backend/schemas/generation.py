@@ -1,25 +1,32 @@
-from typing import Any, Optional, Union
-from pydantic import BaseModel
+from typing import List, Optional, Union, Any
+from pydantic import BaseModel, Field
+
+class EquipmentItem(BaseModel):
+    equipment_name: str
+    quantity: Union[int, str]
 
 class AgreementFormData(BaseModel):
-    company_name: str = ""
-    customer_address: str = ""
-    contact_person_name: str = ""
-    contact_person_designation: str = ""
-    contact_person_email: str = ""
-    contact_person_phone: str = ""
-    agreement_start_date: Union[str, Any] = ""
-    agreement_end_date: Union[str, Any] = ""
-    device_name: str = ""
-    device_serial_number: str = ""
-    territory: str = ""
-    agreement_value: Union[float, int, str] = 0.0
-    device_ownership: str = "customer"
-    agreement_type: str = "pending"
+    agreement_type: str
+    customer_name: str
+    location: str
+    distributor_name: Optional[str] = ""
+    equipment: List[EquipmentItem] = Field(default_factory=list)
+    initiator_name_and_date: str = ""
+    manager_name_and_date: str = ""
+    date: str = ""
+    address: str = ""
+    receiver_name: str = ""
+    receiver_title: str = ""
+    receiver_date: str = ""
+    intervet_name: str = ""
+    intervet_title: str = ""
+    intervet_date: str = ""
 
 class SubmitResponse(BaseModel):
     entry_id: str
+    agreement_id: str
     message: str
+    preview_url: str
 
 class GenerateResponse(BaseModel):
     agreement_id: str
