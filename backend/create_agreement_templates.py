@@ -1,735 +1,773 @@
 """
 =============================================================================
-AGREEMENT TEMPLATE GENERATOR
-=============================================================================
-Creates 4 Word (.docx) agreement templates with full legal content:
-  1. Direct Agreement Template - Customer Ownership
-  2. Direct Agreement Template - Innoject Pro
-  3. Indirect Agreement Template - Customer Ownership
-  4. Indirect Agreement Template - Innoject Pro
-
-Each template contains:
-  - Standard commercial agreement legal clauses
-  - Placeholder fields for dynamic data ({{customer_name}}, {{location}}, etc.)
-  - Equipment table marker ({{equipment_table}})
-  - Exhibit A with auto-populated equipment marker ({{exhibit_a_equipment}})
-  - Dual signature sections (Customer optional, Intervet mandatory)
-  - Internal approval section
+EXACT WORD AGREEMENT TEMPLATE GENERATOR
+Based on exact images from 'Refer these images' folder:
+  1. Direct Agreement Template-Customer ownership.docx
+  2. Direct Agreement Template-Innoject Pro.docx
+  3. Indirect Agreement Template-Customer Ownership.docx
+  4. Indirect Agreement Template-Innoject Pro.docx
 =============================================================================
 """
 
+import os
 from docx import Document
-from docx.shared import Pt, Inches, Cm, RGBColor
+from docx.shared import Pt, Inches, RGBColor, Emu
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.oxml.ns import qn, nsdecls
-from docx.oxml import parse_xml
+from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
+from docx.oxml.ns import nsdecls, qn
+from docx.oxml import parse_xml, OxmlElement
 from pathlib import Path
 
 from config import TEMPLATES_DIR
 
 
-def _set_cell_shading(cell, color_hex):
+def set_cell_margins(cell, top=100, bottom=100, left=150, right=150):
+    """Set inner margins for a table cell in dxa (1 pt = 20 dxa)."""
+    tcPr = cell._tc.get_or_add_tcPr()
+    tcMar = parse_xml(
+        f'<w:tcMar {nsdecls("w")}>'
+        f'<w:top w:w="{top}" w:type="dxa"/>'
+        f'<w:bottom w:w="{bottom}" w:type="dxa"/>'
+        f'<w:left w:w="{left}" w:type="dxa"/>'
+        f'<w:right w:w="{right}" w:type="dxa"/>'
+        f'</w:tcMar>'
+    )
+    tcPr.append(tcMar)
+
+
+def set_cell_shading(cell, color_hex):
     """Apply background shading to a table cell."""
     shading = parse_xml(f'<w:shd {nsdecls("w")} w:fill="{color_hex}"/>')
     cell._tc.get_or_add_tcPr().append(shading)
 
 
-def _add_styled_heading(doc, text, level=1):
-    """Add a heading with consistent styling."""
-    heading = doc.add_heading(text, level=level)
-    for run in heading.runs:
-        run.font.color.rgb = RGBColor(0, 0x85, 0x7C)  # MSD Teal
-    return heading
+def set_table_borders(table):
+    """Apply standard clean black border to table."""
+    tblPr = table._tbl.tblPr
+    borders = parse_xml(
+        f'<w:tblBorders {nsdecls("w")}>'
+        f'<w:top w:val="single" w:sz="4" w:space="0" w:color="000000"/>'
+        f'<w:left w:val="single" w:sz="4" w:space="0" w:color="000000"/>'
+        f'<w:bottom w:val="single" w:sz="4" w:space="0" w:color="000000"/>'
+        f'<w:right w:val="single" w:sz="4" w:space="0" w:color="000000"/>'
+        f'<w:insideH w:val="single" w:sz="4" w:space="0" w:color="000000"/>'
+        f'<w:insideV w:val="single" w:sz="4" w:space="0" w:color="000000"/>'
+        f'</w:tblBorders>'
+    )
+    tblPr.append(borders)
 
 
-def _add_normal_paragraph(doc, text, bold=False, alignment=None, space_after=Pt(6)):
-    """Add a standard paragraph."""
+def remove_table_borders(table):
+    """Remove all borders from a table."""
+    tblPr = table._tbl.tblPr
+    borders = parse_xml(
+        f'<w:tblBorders {nsdecls("w")}>'
+        f'<w:top w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+        f'<w:left w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+        f'<w:bottom w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+        f'<w:right w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+        f'<w:insideH w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+        f'<w:insideV w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+        f'</w:tblBorders>'
+    )
+    tblPr.append(borders)
+
+
+def set_cell_width(cell, width_inches):
+    """Explicitly set cell width."""
+    cell.width = Inches(width_inches)
+    tcPr = cell._tc.get_or_add_tcPr()
+    tcW = OxmlElement('w:tcW')
+    tcW.set(qn('w:w'), str(int(width_inches * 1440)))
+    tcW.set(qn('w:type'), 'dxa')
+    tcPr.append(tcW)
+
+
+def format_para(p, text="", font_name="Times New Roman", font_size=11, bold=False, italic=False, underline=False, align=None, space_after=Pt(3), space_before=Pt(0), line_spacing=1.15):
+    if text:
+        run = p.add_run(text)
+        run.bold = bold
+        run.italic = italic
+        run.underline = underline
+        run.font.name = font_name
+        run.font.size = Pt(font_size)
+    if align:
+        p.alignment = align
+    p.paragraph_format.space_after = space_after
+    p.paragraph_format.space_before = space_before
+    p.paragraph_format.line_spacing = line_spacing
+    return p
+
+
+def add_p(doc, text="", font_name="Times New Roman", font_size=11, bold=False, italic=False, underline=False, align=None, space_after=Pt(4), space_before=Pt(0), line_spacing=1.15):
     p = doc.add_paragraph()
-    if alignment:
-        p.alignment = alignment
+    return format_para(p, text, font_name, font_size, bold, italic, underline, align, space_after, space_before, line_spacing)
+
+
+def add_run_to_para(p, text, font_name="Times New Roman", font_size=11, bold=False, italic=False, underline=False):
+    """Add a run to an existing paragraph with specified formatting."""
     run = p.add_run(text)
     run.bold = bold
-    run.font.size = Pt(11)
-    run.font.name = 'Calibri'
-    p.paragraph_format.space_after = space_after
-    return p
-
-
-def _add_equipment_table_marker(doc):
-    """Add the equipment table placeholder that will be replaced dynamically."""
-    p = doc.add_paragraph()
-    run = p.add_run('{{equipment_table}}')
-    run.font.size = Pt(11)
-    run.font.name = 'Calibri'
-    return p
-
-
-def _add_internal_approval_section(doc):
-    """Add the Internal Approval section."""
-    _add_styled_heading(doc, 'INTERNAL APPROVAL', level=2)
-
-    table = doc.add_table(rows=3, cols=2)
-    table.style = 'Table Grid'
-    table.alignment = WD_TABLE_ALIGNMENT.CENTER
-
-    # Header row
-    for i, header in enumerate(['Role', 'Name and Date']):
-        cell = table.cell(0, i)
-        cell.text = header
-        for p in cell.paragraphs:
-            for run in p.runs:
-                run.bold = True
-                run.font.size = Pt(10)
-                run.font.name = 'Calibri'
-        _set_cell_shading(cell, 'E6F3F2')
-
-    # Initiator row
-    table.cell(1, 0).text = 'Initiator'
-    table.cell(1, 1).text = '{{initiator_name_and_date}}'
-
-    # Manager row
-    table.cell(2, 0).text = 'Manager'
-    table.cell(2, 1).text = '{{manager_name_and_date}}'
-
-    # Style data cells
-    for row_idx in range(1, 3):
-        for col_idx in range(2):
-            cell = table.cell(row_idx, col_idx)
-            for p in cell.paragraphs:
-                for run in p.runs:
-                    run.font.size = Pt(10)
-                    run.font.name = 'Calibri'
-
-    doc.add_paragraph()
-
-
-def _add_signature_section(doc):
-    """Add the dual signature section."""
-    _add_styled_heading(doc, 'SIGNATURES', level=2)
-
-    _add_normal_paragraph(doc,
-        'IN WITNESS WHEREOF, the parties hereto have executed this Agreement as of the date first written above.',
-        space_after=Pt(12))
-
-    table = doc.add_table(rows=6, cols=2)
-    table.style = 'Table Grid'
-    table.alignment = WD_TABLE_ALIGNMENT.CENTER
-
-    # Set column widths
-    for row in table.rows:
-        row.cells[0].width = Inches(3.5)
-        row.cells[1].width = Inches(3.5)
-
-    # --- Column 1: Customer / Receiver ---
-    header_cell_1 = table.cell(0, 0)
-    header_cell_1.text = 'Customer / Receiver'
-    _set_cell_shading(header_cell_1, 'E6F3F2')
-    for p in header_cell_1.paragraphs:
-        for run in p.runs:
-            run.bold = True
-            run.font.size = Pt(10)
-            run.font.name = 'Calibri'
-
-    table.cell(1, 0).text = 'Signature:'
-    sig_cell_1 = table.cell(2, 0)
-    sig_cell_1.text = '{{customer_signature}}'
-    table.cell(3, 0).text = 'Name: {{receiver_name}}'
-    table.cell(4, 0).text = 'Title: {{receiver_title}}'
-    table.cell(5, 0).text = 'Date: {{receiver_date}}'
-
-    # --- Column 2: Intervet India Private Limited ---
-    header_cell_2 = table.cell(0, 1)
-    header_cell_2.text = 'Intervet India Private Limited'
-    _set_cell_shading(header_cell_2, 'E6F3F2')
-    for p in header_cell_2.paragraphs:
-        for run in p.runs:
-            run.bold = True
-            run.font.size = Pt(10)
-            run.font.name = 'Calibri'
-
-    table.cell(1, 1).text = 'Signature:'
-    sig_cell_2 = table.cell(2, 1)
-    sig_cell_2.text = '{{intervet_signature}}'
-    table.cell(3, 1).text = 'Name: {{intervet_name}}'
-    table.cell(4, 1).text = 'Title: {{intervet_title}}'
-    table.cell(5, 1).text = 'Date: {{intervet_date}}'
-
-    # Style all data cells
-    for row_idx in range(1, 6):
-        for col_idx in range(2):
-            cell = table.cell(row_idx, col_idx)
-            for p in cell.paragraphs:
-                for run in p.runs:
-                    run.font.size = Pt(10)
-                    run.font.name = 'Calibri'
-
-    doc.add_paragraph()
-
-
-def _add_exhibit_a(doc):
-    """Add Exhibit A section with equipment auto-population marker."""
-    doc.add_page_break()
-    _add_styled_heading(doc, 'EXHIBIT A', level=1)
-    _add_normal_paragraph(doc, 'EQUIPMENT SCHEDULE', bold=True,
-                          alignment=WD_ALIGN_PARAGRAPH.CENTER)
-
-    _add_normal_paragraph(doc,
-        'The following equipment is covered under this Agreement:',
-        space_after=Pt(12))
-
-    # Equipment auto-population marker
-    p = doc.add_paragraph()
-    run = p.add_run('{{exhibit_a_equipment}}')
-    run.font.size = Pt(11)
-    run.font.name = 'Calibri'
-
-    doc.add_paragraph()
-    _add_normal_paragraph(doc,
-        'This Exhibit A forms an integral part of the Agreement and shall be read in conjunction with all terms and conditions stated therein.',
-        space_after=Pt(12))
-
-
-def _create_title_page(doc, title, subtitle=None):
-    """Create the title header for the agreement."""
-    # Company header
-    header_p = doc.add_paragraph()
-    header_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = header_p.add_run('INTERVET INDIA PRIVATE LIMITED')
-    run.bold = True
-    run.font.size = Pt(16)
-    run.font.color.rgb = RGBColor(0, 0x85, 0x7C)
-    run.font.name = 'Calibri'
-
-    # Subtitle line
-    sub_p = doc.add_paragraph()
-    sub_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run2 = sub_p.add_run('(A subsidiary of Merck & Co., Inc.)')
-    run2.font.size = Pt(10)
-    run2.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
-    run2.font.name = 'Calibri'
-
-    doc.add_paragraph()  # spacer
-
-    # Agreement title
-    title_p = doc.add_paragraph()
-    title_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    title_run = title_p.add_run(title.upper())
-    title_run.bold = True
-    title_run.font.size = Pt(14)
-    title_run.font.name = 'Calibri'
-
-    if subtitle:
-        sub_title_p = doc.add_paragraph()
-        sub_title_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        sub_run = sub_title_p.add_run(subtitle)
-        sub_run.font.size = Pt(11)
-        sub_run.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
-        sub_run.font.name = 'Calibri'
-
-    # Date line
-    date_p = doc.add_paragraph()
-    date_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    date_run = date_p.add_run('Date: {{date}}')
-    date_run.font.size = Pt(11)
-    date_run.font.name = 'Calibri'
-
-    doc.add_paragraph()  # spacer
+    run.italic = italic
+    run.underline = underline
+    run.font.name = font_name
+    run.font.size = Pt(font_size)
+    return run
 
 
 # =============================================================================
-# TEMPLATE 1: Direct Agreement - Customer Ownership
+# PAGE 1: APPENDIX B OPPORTUNITY EVALUATION WORKSHEET (ALL 4 TEMPLATES)
+# =============================================================================
+def build_page_1_appendix_b(doc, is_indirect=False):
+    # Header: Proprietary (Top Left)
+    p_prop = add_p(doc, "Proprietary", font_size=9, bold=False, italic=False, space_after=Pt(12))
+
+    # Titles
+    add_p(doc, "MAH-PROC-100-12 Product Related Technical Equipment and Devices", font_size=11, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(2))
+    add_p(doc, "APPENDIX B", font_size=11, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(2))
+    add_p(doc, "Opportunity Evaluation Worksheet", font_size=10, bold=False, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(2))
+    add_p(doc, "(Local currency)", font_size=9, bold=False, italic=False, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(10))
+
+    # ---- Main Details Table (3 rows, 2 cols) ----
+    table1 = doc.add_table(rows=3, cols=2)
+    table1.style = 'Table Grid'
+    table1.alignment = WD_TABLE_ALIGNMENT.CENTER
+    set_table_borders(table1)
+
+    for row in table1.rows:
+        row.cells[0].width = Inches(3.6)
+        row.cells[1].width = Inches(3.6)
+        for cell in row.cells:
+            set_cell_margins(cell, top=80, bottom=80, left=120, right=120)
+
+    # Row 0: Customer Name & Location
+    c00 = table1.cell(0, 0)
+    p00 = c00.paragraphs[0]
+    if is_indirect:
+        format_para(p00, "Customer Name: {Distributor Name}\n{{Customer Name}}", font_size=9.5)
+    else:
+        format_para(p00, "Customer Name: {Customer Name}", font_size=9.5)
+
+    c01 = table1.cell(0, 1)
+    p01 = c01.paragraphs[0]
+    format_para(p01, "Location: {Location}", font_size=9.5)
+
+    # Row 1: Purpose (merge across both columns to span full width)
+    c10 = table1.cell(1, 0)
+    c11 = table1.cell(1, 1)
+    c10.merge(c11)
+    p10 = c10.paragraphs[0]
+    format_para(p10, "Purpose for Providing Equipment:    To promote usage of Hatchery Vaccination", font_size=9.5)
+
+    # Row 2: Sales Value & Margins
+    c20 = table1.cell(2, 0)
+    p20 = c20.paragraphs[0]
+    format_para(p20, "Sales Value of Initial Purchase Order:\nAs Per financial Evaluation", font_size=9.5)
+
+    c21 = table1.cell(2, 1)
+    p21 = c21.paragraphs[0]
+    format_para(p21, "Estimated Local Gross Margin of Annual Sales Value*: As Per financial Evaluation\n\nAdditional finance support from local / regional stakeholders - ", font_size=9.5)
+
+    # ---- Equipment Table Section ----
+    # "Equipment and/or Devices to be provided:" header
+    p_eq_header = add_p(doc, "Equipment and/or Devices to be provided:", font_size=9.5, space_before=Pt(6), space_after=Pt(2))
+
+    # Equipment table with Description / Quantity / FMV columns
+    eq_table = doc.add_table(rows=4, cols=3)
+    eq_table.style = 'Table Grid'
+    eq_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    set_table_borders(eq_table)
+
+    for row in eq_table.rows:
+        set_cell_width(row.cells[0], 2.5)
+        set_cell_width(row.cells[1], 1.5)
+        set_cell_width(row.cells[2], 1.5)
+        for cell in row.cells:
+            set_cell_margins(cell, top=60, bottom=60, left=100, right=100)
+
+    # Header row
+    format_para(eq_table.cell(0, 0).paragraphs[0], "Description", font_size=9, bold=True, underline=True)
+    format_para(eq_table.cell(0, 1).paragraphs[0], "Quantity", font_size=9, bold=True, underline=True)
+    format_para(eq_table.cell(0, 2).paragraphs[0], "FMV", font_size=9, bold=True)
+
+    # Equipment rows (placeholders for dynamic replacement)
+    format_para(eq_table.cell(1, 0).paragraphs[0], "{Equipment Name}", font_size=9)
+    format_para(eq_table.cell(1, 1).paragraphs[0], "{quantity}", font_size=9)
+    format_para(eq_table.cell(1, 2).paragraphs[0], "", font_size=9)
+
+    format_para(eq_table.cell(2, 0).paragraphs[0], "{Equipment Name}", font_size=9)
+    format_para(eq_table.cell(2, 1).paragraphs[0], "{quantity}", font_size=9)
+    format_para(eq_table.cell(2, 2).paragraphs[0], "", font_size=9)
+
+    # Empty row for additional items
+    format_para(eq_table.cell(3, 0).paragraphs[0], "", font_size=9)
+    format_para(eq_table.cell(3, 1).paragraphs[0], "", font_size=9)
+    format_para(eq_table.cell(3, 2).paragraphs[0], "", font_size=9)
+
+    # Marker for dynamic equipment replacement
+    p_eq_marker = add_p(doc, "{{appendix_b_equipment_table}}", font_size=1, space_after=Pt(0), space_before=Pt(0))
+
+    # Total FAIR MARKET VALUE & ROI table
+    roi_table = doc.add_table(rows=1, cols=2)
+    roi_table.style = 'Table Grid'
+    roi_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    set_table_borders(roi_table)
+
+    set_cell_width(roi_table.cell(0, 0), 3.6)
+    set_cell_width(roi_table.cell(0, 1), 3.6)
+    set_cell_margins(roi_table.cell(0, 0), top=60, bottom=60, left=100, right=100)
+    set_cell_margins(roi_table.cell(0, 1), top=60, bottom=60, left=100, right=100)
+
+    format_para(roi_table.cell(0, 0).paragraphs[0], "Total FAIR MARKET VALUE of Equipment and/or Devices:", font_size=9)
+    format_para(roi_table.cell(0, 1).paragraphs[0], "Return on Investment:\n[Gross Margin of Annual Sales - FMV of Equipment and/or Devices]÷ [FMV of Equipment and Devices]: %", font_size=8.5)
+
+    # ROI note below table
+    add_p(doc, "*Similar to any investment MAH may make, we would expect a reasonable Return on Investment (ROI) related to this investment in Equipment and/or Devices.", font_size=8.5, italic=True, space_before=Pt(4), space_after=Pt(8))
+
+    # ---- Approvers Table ----
+    table_app = doc.add_table(rows=5, cols=3)
+    table_app.style = 'Table Grid'
+    table_app.alignment = WD_TABLE_ALIGNMENT.CENTER
+    set_table_borders(table_app)
+
+    for row in table_app.rows:
+        set_cell_width(row.cells[0], 0.8)
+        set_cell_width(row.cells[1], 3.0)
+        set_cell_width(row.cells[2], 3.4)
+        for cell in row.cells:
+            set_cell_margins(cell, top=60, bottom=60, left=100, right=100)
+
+    # Header Row
+    format_para(table_app.cell(0, 0).paragraphs[0], "", font_size=9)
+    format_para(table_app.cell(0, 1).paragraphs[0], "", font_size=9)
+    format_para(table_app.cell(0, 2).paragraphs[0], "If signed by hand, a signature date is required", font_size=8.5, bold=True, italic=True)
+
+    # Approvers vertical cell (merge col 0 across rows 1-4)
+    cell_app_vert = table_app.cell(1, 0)
+    for r_idx in range(2, 5):
+        cell_app_vert.merge(table_app.cell(r_idx, 0))
+    p_v = cell_app_vert.paragraphs[0]
+    format_para(p_v, "Approvers", font_size=9, bold=True)
+
+    # Rows 1 to 4
+    app_roles = [
+        ("Initiator/Business Owner", "{Initiator Name and Date}"),
+        ("Next level manager (with appropriate GOA)", "{Manager Name and Date}"),
+        ("Regional Finance\n(for leased/ rental user agreement for a fee)", ""),
+        ("Legal\n(when dominant Products are involved)", "")
+    ]
+
+    for idx, (role, sig) in enumerate(app_roles):
+        row_num = idx + 1
+        c_role = table_app.cell(row_num, 1)
+        format_para(c_role.paragraphs[0], role, font_size=8.5, bold=True, italic=True)
+        c_sig = table_app.cell(row_num, 2)
+        format_para(c_sig.paragraphs[0], sig, font_size=8.5)
+
+    doc.add_page_break()
+
+
+# =============================================================================
+# SIGNATURE SECTION — Matches reference images (side-by-side blocks, no table)
+# =============================================================================
+def build_signature_section(doc, left_party_name="{Customer Name}", right_party_name="Intervet India Private Limited"):
+    """Build the signature section matching reference images.
+    Uses a borderless 2-column table to create side-by-side layout.
+    """
+    add_p(doc, "IN WITNESS WHEREOF, the Parties have caused this Form to be duly executed as of the Effective Date.", font_size=10, space_after=Pt(16))
+
+    # Use a borderless table for side-by-side layout
+    sig_table = doc.add_table(rows=7, cols=2)
+    sig_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    remove_table_borders(sig_table)
+
+    for row in sig_table.rows:
+        set_cell_width(row.cells[0], 3.5)
+        set_cell_width(row.cells[1], 3.5)
+        for cell in row.cells:
+            set_cell_margins(cell, top=40, bottom=40, left=100, right=100)
+
+    # Row 0: "Signed for and on behalf of:" headers
+    format_para(sig_table.cell(0, 0).paragraphs[0], "Signed for and on behalf of:", font_size=10)
+    format_para(sig_table.cell(0, 1).paragraphs[0], "Signed for and on behalf of:", font_size=10)
+
+    # Row 1: Party names
+    format_para(sig_table.cell(1, 0).paragraphs[0], left_party_name, font_size=10)
+    format_para(sig_table.cell(1, 1).paragraphs[0], right_party_name, font_size=10, underline=True)
+
+    # Row 2: Blank space for signatures + signature image markers
+    p_cust_sig = sig_table.cell(2, 0).paragraphs[0]
+    format_para(p_cust_sig, "\n\n{{customer_signature}}", font_size=9.5, space_after=Pt(2))
+
+    p_intervet_sig = sig_table.cell(2, 1).paragraphs[0]
+    format_para(p_intervet_sig, "\n\n{{intervet_signature}}", font_size=9.5, space_after=Pt(2))
+
+    # Row 3: Signature lines (horizontal rule using underscores)
+    format_para(sig_table.cell(3, 0).paragraphs[0], "________________________________", font_size=10, space_after=Pt(4))
+    format_para(sig_table.cell(3, 1).paragraphs[0], "________________________________", font_size=10, space_after=Pt(4))
+
+    # Row 4: Name fields
+    p_name_left = sig_table.cell(4, 0).paragraphs[0]
+    add_run_to_para(p_name_left, "Name: ", font_size=10)
+    add_run_to_para(p_name_left, "{Receiver Name}", font_size=10)
+    p_name_left.paragraph_format.space_after = Pt(2)
+
+    p_name_right = sig_table.cell(4, 1).paragraphs[0]
+    add_run_to_para(p_name_right, "Name: ", font_size=10)
+    add_run_to_para(p_name_right, "{Name}", font_size=10)
+    p_name_right.paragraph_format.space_after = Pt(2)
+
+    # Row 5: Title fields
+    p_title_left = sig_table.cell(5, 0).paragraphs[0]
+    add_run_to_para(p_title_left, "Title: ", font_size=10)
+    add_run_to_para(p_title_left, "{Title of receiver}", font_size=10)
+    p_title_left.paragraph_format.space_after = Pt(2)
+
+    p_title_right = sig_table.cell(5, 1).paragraphs[0]
+    add_run_to_para(p_title_right, "Title: ", font_size=10)
+    add_run_to_para(p_title_right, "{Title}", font_size=10)
+    p_title_right.paragraph_format.space_after = Pt(2)
+
+    # Row 6: Date fields
+    format_para(sig_table.cell(6, 0).paragraphs[0], "Date:", font_size=10, space_after=Pt(2))
+    format_para(sig_table.cell(6, 1).paragraphs[0], "Date:", font_size=10, space_after=Pt(2))
+
+
+# =============================================================================
+# EXHIBIT A & EXHIBIT X (COMMON TO TEMPLATES)
+# =============================================================================
+def build_exhibit_a(doc, title_subtitle="Products and Quantities"):
+    doc.add_page_break()
+    add_p(doc, "Confidential", font_size=9, space_after=Pt(18))
+    add_p(doc, "EXHIBIT A", font_size=11, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(2))
+    add_p(doc, title_subtitle, font_size=10, bold=False, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(16))
+
+    # Exhibit A Dynamic Equipment Marker
+    add_p(doc, "{{exhibit_a_equipment}}", font_size=10, space_after=Pt(12))
+
+
+def build_exhibit_x(doc, entity_name="Customer"):
+    doc.add_page_break()
+    add_p(doc, "Confidential", font_size=9, space_after=Pt(18))
+    add_p(doc, "EXHIBIT X", font_size=11, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(2))
+    add_p(doc, "Data Privacy Provisions", font_size=10, bold=False, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(16))
+
+    p = add_p(doc, font_size=10, line_spacing=1.15)
+    r_head = p.add_run("1. Data Privacy and Security Requirements. ")
+    r_head.bold = True
+    r_head.underline = True
+    r_head.font.name = "Times New Roman"
+    r_head.font.size = Pt(10)
+    r_body = p.add_run(
+        f'To the extent {entity_name} accesses, collects, uses, stores, or otherwise processes any data in connection with this Agreement that would constitute '
+        f'"Personal Information" or a similar data classification subject to additional requirements under any applicable data protection, data security, or privacy law '
+        f'("Data Protection Law") {entity_name} shall comply with such Data Protection Law in addition to {entity_name}\'s other obligations regarding that data under this Agreement.'
+    )
+    r_body.font.name = "Times New Roman"
+    r_body.font.size = Pt(10)
+
+
+# =============================================================================
+# 1. DIRECT AGREEMENT TEMPLATE - CUSTOMER OWNERSHIP
 # =============================================================================
 def create_direct_customer_ownership():
     doc = Document()
+    
+    # Page 1: Appendix B
+    build_page_1_appendix_b(doc, is_indirect=False)
 
-    # Set default font
-    style = doc.styles['Normal']
-    font = style.font
-    font.name = 'Calibri'
-    font.size = Pt(11)
+    # Page 2: Device Release Form
+    add_p(doc, "Confidential", font_size=9, space_after=Pt(14))
+    add_p(doc, "DEVICE RELEASE FORM", font_size=11, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(14))
 
-    _create_title_page(doc,
-        'DIRECT DEVICE AGREEMENT',
-        'Customer Ownership Model')
+    add_p(doc, 'This DEVICE RELEASE FORM ("Form"), made as of this {DATE} ("Effective Date"), by and between', font_size=10, space_after=Pt(6))
+    add_p(doc, 'Intervet India Private Limited, a company incorporated under the laws of India, having its registered office at Pune, Maharashtra ("MAH")', font_size=10, space_after=Pt(6))
+    add_p(doc, 'and', font_size=10, space_after=Pt(6))
+    add_p(doc, '{Customer Name}, a corporation duly organized and existing under the laws of India, having its principal place of business at {Customer Name},', font_size=10, space_after=Pt(2))
+    add_p(doc, '{ADDRESS OF THE CUSTOMER COMPANY}', font_size=10, bold=False, space_after=Pt(10))
 
-    # --- Section 1: Parties ---
-    _add_styled_heading(doc, '1. PARTIES', level=1)
-    _add_normal_paragraph(doc,
-        'This Device Agreement ("Agreement") is entered into as of {{date}} ("Effective Date"), by and between:')
-    _add_normal_paragraph(doc,
-        'Intervet India Private Limited, a company incorporated under the laws of India, having its registered office at Pune, Maharashtra (hereinafter referred to as "Intervet" or "Company"), of the FIRST PART;',
-        space_after=Pt(8))
-    _add_normal_paragraph(doc, 'AND')
-    _add_normal_paragraph(doc,
-        '{{customer_name}}, located at {{location}} (hereinafter referred to as the "Customer" or "Recipient"), of the SECOND PART.',
-        space_after=Pt(8))
-    _add_normal_paragraph(doc,
-        '(Intervet and the Customer are hereinafter individually referred to as "Party" and collectively as "Parties".)')
+    add_p(doc, 'MAH and Customer, intending to be legally bound, hereby agree as follows:', font_size=10, space_after=Pt(8))
 
-    # --- Section 2: Recitals ---
-    _add_styled_heading(doc, '2. RECITALS', level=1)
-    _add_normal_paragraph(doc,
-        'WHEREAS, Intervet is engaged in the business of manufacturing, importing, distributing, and selling animal health products, vaccines, and pharmaceutical devices for veterinary use;')
-    _add_normal_paragraph(doc,
-        'WHEREAS, the Customer desires to purchase certain equipment/devices from Intervet for use in its veterinary or animal health practice;')
-    _add_normal_paragraph(doc,
-        'WHEREAS, Intervet agrees to sell and the Customer agrees to purchase the equipment/devices subject to the terms and conditions set forth in this Agreement;')
-    _add_normal_paragraph(doc,
-        'NOW, THEREFORE, in consideration of the mutual covenants and agreements contained herein, and for other good and valuable consideration, the receipt and sufficiency of which are hereby acknowledged, the Parties agree as follows:')
+    clauses = [
+        "1.  MAH shall deliver to the Customer the Device free of charge.",
+        '2.  The Customer shall endeavor during the Term of this Form to purchase such quantities of Products as set forth in Exhibit A attached to this Form. At the end of each {calendar quarter and/or period} ("Period").',
+        "3.  The Customer agrees to promptly inform the MAH of the deployment of any devices to its Customer. Such notification shall include detailed information regarding the location of each deployed device. This information is essential for the MAH to provide the necessary support as per the agreed terms. The Customer shall ensure that all deployment details are communicated to the MAH within 5 working days of the installation of the Device at its customer location.",
+        "4.  The Customer agrees to hold harmless, release, and indemnify MAH in full of any and all liability, damage, loss, or harm related to the Device or arising in any way from the use or storage of the Device.",
+        "5.  The Customer acknowledges that the Device was received in good working condition and is henceforth the sole and exclusive responsibility of the Customer and that MAH owes the Customer no further obligation, of any kind whatsoever, related to the Device."
+    ]
 
-    # --- Section 3: Equipment Details ---
-    _add_styled_heading(doc, '3. EQUIPMENT DETAILS', level=1)
-    _add_normal_paragraph(doc,
-        'The following equipment/devices are covered under this Agreement:')
-    _add_equipment_table_marker(doc)
+    for cl in clauses:
+        add_p(doc, cl, font_size=9.5, space_after=Pt(6))
 
-    # --- Section 4: Terms and Conditions ---
-    _add_styled_heading(doc, '4. TERMS AND CONDITIONS', level=1)
+    # Page 3: Clause 6 & Signatures
+    doc.add_page_break()
+    add_p(doc, "Confidential", font_size=9, space_after=Pt(14))
+    add_p(doc, "6.  The Customer understands that MAH released ownership of the Device to the Customer and further agrees that the Customer shall hold harmless, release, and indemnify MAH in full of any and all liability, damage, loss, or harm related to the Device or arising in any way from use or storage of the Device.", font_size=9.5, space_after=Pt(14))
 
-    _add_styled_heading(doc, '4.1 Ownership and Transfer', level=2)
-    _add_normal_paragraph(doc,
-        'Upon completion of the sale and receipt of full payment, the ownership of the equipment shall transfer to the Customer. The Customer shall be the sole and absolute owner of the equipment from the date of delivery.')
+    build_signature_section(doc, left_party_name="{Distributor Name}", right_party_name="Intervet India Private Limited")
 
-    _add_styled_heading(doc, '4.2 Delivery', level=2)
-    _add_normal_paragraph(doc,
-        'Intervet shall deliver the equipment to the Customer at the address specified in the Device Release Form. The risk of loss or damage to the equipment shall pass to the Customer upon delivery.')
+    # Page 4: Exhibit A
+    build_exhibit_a(doc, "Products and Quantities")
 
-    _add_styled_heading(doc, '4.3 Payment', level=2)
-    _add_normal_paragraph(doc,
-        'The Customer agrees to pay for the equipment as per the commercial terms agreed between the Parties. All payments shall be made within 30 (thirty) days from the date of invoice, unless otherwise agreed in writing.')
-
-    _add_styled_heading(doc, '4.4 Warranty', level=2)
-    _add_normal_paragraph(doc,
-        'Intervet warrants that the equipment shall be free from defects in material and workmanship for a period of 12 (twelve) months from the date of delivery ("Warranty Period"). This warranty does not cover damage caused by misuse, negligence, unauthorized modification, or normal wear and tear.')
-
-    _add_styled_heading(doc, '4.5 Maintenance and Support', level=2)
-    _add_normal_paragraph(doc,
-        'During the Warranty Period, Intervet shall provide free maintenance and technical support for the equipment. After the expiry of the Warranty Period, maintenance services shall be available at mutually agreed commercial terms.')
-
-    _add_styled_heading(doc, '4.6 Use of Equipment', level=2)
-    _add_normal_paragraph(doc,
-        'The Customer shall use the equipment solely for the purposes intended and in accordance with the manufacturer\'s guidelines and instructions. The Customer shall ensure that the equipment is operated only by qualified and trained personnel.')
-
-    _add_styled_heading(doc, '4.7 Indemnification', level=2)
-    _add_normal_paragraph(doc,
-        'Each Party shall indemnify and hold harmless the other Party from and against any and all claims, losses, damages, liabilities, costs, and expenses arising out of or in connection with any breach of this Agreement or any negligent or wrongful act or omission of the indemnifying Party.')
-
-    _add_styled_heading(doc, '4.8 Confidentiality', level=2)
-    _add_normal_paragraph(doc,
-        'Both Parties agree to maintain the confidentiality of all proprietary and confidential information exchanged in connection with this Agreement. This obligation shall survive the termination or expiry of this Agreement for a period of 3 (three) years.')
-
-    _add_styled_heading(doc, '4.9 Governing Law and Dispute Resolution', level=2)
-    _add_normal_paragraph(doc,
-        'This Agreement shall be governed by and construed in accordance with the laws of India. Any disputes arising out of or in connection with this Agreement shall be resolved through mutual negotiations. If the dispute cannot be resolved amicably, it shall be referred to arbitration in accordance with the Arbitration and Conciliation Act, 1996, with the seat of arbitration in Pune, Maharashtra.')
-
-    _add_styled_heading(doc, '4.10 Termination', level=2)
-    _add_normal_paragraph(doc,
-        'This Agreement may be terminated by either Party upon 30 (thirty) days\' prior written notice to the other Party. In the event of a material breach by either Party, the non-breaching Party may terminate this Agreement immediately upon written notice.')
-
-    _add_styled_heading(doc, '4.11 Entire Agreement', level=2)
-    _add_normal_paragraph(doc,
-        'This Agreement, together with its Exhibits and any amendments executed by both Parties, constitutes the entire agreement between the Parties with respect to the subject matter hereof and supersedes all prior agreements, understandings, negotiations, and discussions, whether oral or written.')
-
-    # --- Section 5: Device Release Form ---
-    _add_styled_heading(doc, '5. DEVICE RELEASE FORM', level=1)
-    _add_normal_paragraph(doc, 'Date: {{date}}')
-    _add_normal_paragraph(doc, 'To,')
-    _add_normal_paragraph(doc, '{{customer_name}}')
-    _add_normal_paragraph(doc, '{{address}}')
-    doc.add_paragraph()
-    _add_normal_paragraph(doc,
-        'Dear Sir/Madam,')
-    _add_normal_paragraph(doc,
-        'With reference to the above-captioned Agreement, we hereby confirm the release and delivery of the following equipment to the Customer as detailed herein. Please acknowledge receipt of the equipment by signing below.')
-    _add_normal_paragraph(doc,
-        'The equipment is being released in good working condition and has been tested and verified prior to dispatch.')
-
-    # --- Section 6: Internal Approval ---
-    _add_internal_approval_section(doc)
-
-    # --- Section 7: Signatures ---
-    _add_signature_section(doc)
-
-    # --- Exhibit A ---
-    _add_exhibit_a(doc)
+    # Page 5: Exhibit X (reference image shows "Distributor" for Direct Customer Ownership)
+    build_exhibit_x(doc, "Distributor")
 
     return doc
 
 
 # =============================================================================
-# TEMPLATE 2: Direct Agreement - Innoject Pro
+# 2. DIRECT AGREEMENT TEMPLATE - INNOJECT PRO
 # =============================================================================
 def create_direct_innoject_pro():
     doc = Document()
+    
+    # Page 1: Appendix B
+    build_page_1_appendix_b(doc, is_indirect=False)
 
-    style = doc.styles['Normal']
-    font = style.font
-    font.name = 'Calibri'
-    font.size = Pt(11)
+    # Page 2: Device Agreement
+    add_p(doc, "Confidential", font_size=9, space_after=Pt(14))
+    add_p(doc, "DEVICE AGREEMENT", font_size=11, bold=True, underline=True, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(14))
 
-    _create_title_page(doc,
-        'DIRECT DEVICE AGREEMENT',
-        'Innoject Pro — Needle-Free Injection System')
+    add_p(doc, 'This DEVICE AGREEMENT ("Agreement"), made as of this {DATE} ("Effective Date"), by and between', font_size=10, space_after=Pt(6))
+    add_p(doc, 'Intervet India Private Limited, a company incorporated under the laws of India, having its registered office at Pune, Maharashtra ("MAH")', font_size=10, space_after=Pt(6))
+    add_p(doc, 'and', font_size=10, space_after=Pt(6))
+    add_p(doc, '{Customer Name}, a corporation duty organized and existing under the laws of India, having its principal place of business at {Customer Name},', font_size=10, space_after=Pt(2))
+    add_p(doc, '{ADDRESS OF THE CUSTOMER COMPANY}', font_size=10, bold=False, space_after=Pt(8))
 
-    # --- Section 1: Parties ---
-    _add_styled_heading(doc, '1. PARTIES', level=1)
-    _add_normal_paragraph(doc,
-        'This Device Agreement ("Agreement") is entered into as of {{date}} ("Effective Date"), by and between:')
-    _add_normal_paragraph(doc,
-        'Intervet India Private Limited, a company incorporated under the laws of India, having its registered office at Pune, Maharashtra (hereinafter referred to as "Intervet" or "Company"), of the FIRST PART;',
-        space_after=Pt(8))
-    _add_normal_paragraph(doc, 'AND')
-    _add_normal_paragraph(doc,
-        '{{customer_name}}, located at {{location}} (hereinafter referred to as the "Customer" or "Recipient"), of the SECOND PART.',
-        space_after=Pt(8))
-    _add_normal_paragraph(doc,
-        '(Intervet and the Customer are hereinafter individually referred to as "Party" and collectively as "Parties".)')
+    add_p(doc, 'WHEREAS,', font_size=10, bold=True, space_after=Pt(4))
+    add_p(doc, '•  MAH is engaged in the business of developing, manufacturing, marketing and selling certain Products (as hereinafter defined);', font_size=9.5, space_after=Pt(3))
+    add_p(doc, '•  MAH is willing to offer to Customer the opportunity to use the Device as complementary service and Customer wishes to accept such offer at the terms set herein.', font_size=9.5, space_after=Pt(6))
 
-    # --- Section 2: Recitals ---
-    _add_styled_heading(doc, '2. RECITALS', level=1)
-    _add_normal_paragraph(doc,
-        'WHEREAS, Intervet is engaged in the business of manufacturing, importing, distributing, and selling animal health products, vaccines, pharmaceutical devices, and needle-free injection systems for veterinary use;')
-    _add_normal_paragraph(doc,
-        'WHEREAS, Intervet has developed the Innoject Pro Needle-Free Injection System ("Innoject Pro"), a proprietary device designed for needle-free administration of vaccines and pharmaceuticals in animals;')
-    _add_normal_paragraph(doc,
-        'WHEREAS, the Customer desires to acquire Innoject Pro device(s) from Intervet for use in its veterinary or animal health practice;')
-    _add_normal_paragraph(doc,
-        'NOW, THEREFORE, in consideration of the mutual covenants and agreements contained herein, the Parties agree as follows:')
+    add_p(doc, 'NOW, THEREFORE, in consideration of the promises and the mutual agreements, covenants and conditions set forth in this Agreement and other good and valuable consideration, the receipt and sufficiency of which are hereby acknowledged, MAH and Customer, intending to be legally bound, hereby agree as follows:', font_size=9.5, space_after=Pt(8))
 
-    # --- Section 3: Equipment Details ---
-    _add_styled_heading(doc, '3. EQUIPMENT DETAILS', level=1)
-    _add_normal_paragraph(doc,
-        'The following Innoject Pro device(s) and accessories are covered under this Agreement:')
-    _add_equipment_table_marker(doc)
+    # Article 1
+    p_art1 = add_p(doc, font_size=10, space_after=Pt(3))
+    add_run_to_para(p_art1, "Article 1.    ", font_size=10)
+    add_run_to_para(p_art1, "Definitions", font_size=10, underline=True)
+    
+    add_p(doc, 'For purposes of this Agreement, the following terms shall have the following meanings:', font_size=9.5, space_after=Pt(2))
+    add_p(doc, '1.1  "Device" shall mean Innoject Pro Double Injection with Eye Drop.', font_size=9.5, space_after=Pt(2))
+    add_p(doc, '1.2  "Party" shall mean MAH or Customer and "Parties" shall mean MAH and Customer.', font_size=9.5, space_after=Pt(2))
+    add_p(doc, '1.3  "Products" shall mean any finished, packaged product, as set forth in Exhibit A, which is manufactured by or on behalf of MAH or any Affiliate of MAH in accordance with the standards, specifications, and formulae established by MAH or such Affiliate.', font_size=9.5, space_after=Pt(6))
 
-    # --- Section 4: Terms and Conditions ---
-    _add_styled_heading(doc, '4. TERMS AND CONDITIONS', level=1)
+    # Article 2
+    p_art2 = add_p(doc, font_size=10, space_after=Pt(3))
+    add_run_to_para(p_art2, "Article 2.    ", font_size=10)
+    add_run_to_para(p_art2, "Usage of Device", font_size=10, underline=True)
 
-    _add_styled_heading(doc, '4.1 Device Specifications', level=2)
-    _add_normal_paragraph(doc,
-        'The Innoject Pro is a needle-free injection system designed for the subcutaneous and intramuscular administration of vaccines and pharmaceuticals in livestock and companion animals. The device operates using high-pressure technology to deliver precise dosages without the use of needles.')
+    add_p(doc, '2.1  MAH shall provide the Device free of charge to the Customer as a complementary service. The MAH can provide these devices to its customers free of charge, complying with MAH\'s ownership rights as provided in this agreement.', font_size=9.5, space_after=Pt(3))
+    add_p(doc, '2.2  The Customer agrees to promptly inform the MAH of the deployment of any devices to its customers. Such notification shall include detailed information regarding the location of each deployed device. This information is essential for the MAH to provide the necessary support as per the agreed terms. The Customer shall ensure that all deployment details are communicated to the MAH within 5 working days of the installation of the Device at its customer location.', font_size=9.5, space_after=Pt(6))
 
-    _add_styled_heading(doc, '4.2 Ownership and Transfer', level=2)
-    _add_normal_paragraph(doc,
-        'Upon completion of the sale and receipt of full payment, the ownership of the Innoject Pro device(s) shall transfer to the Customer. The Customer shall be the sole and absolute owner of the device(s) from the date of delivery.')
+    # Page 3
+    doc.add_page_break()
+    add_p(doc, "Confidential", font_size=9, space_after=Pt(14))
 
-    _add_styled_heading(doc, '4.3 Training and Certification', level=2)
-    _add_normal_paragraph(doc,
-        'Intervet shall provide comprehensive training to the Customer\'s designated personnel on the proper use, handling, maintenance, and safety protocols of the Innoject Pro device. Training shall be provided at no additional cost within 30 (thirty) days of delivery.')
+    # Article 3
+    p_art3 = add_p(doc, font_size=10, space_after=Pt(3))
+    add_run_to_para(p_art3, "Article 3.    ", font_size=10)
+    add_run_to_para(p_art3, "Transfer and Delivery", font_size=10, underline=True)
 
-    _add_styled_heading(doc, '4.4 Safety and Compliance', level=2)
-    _add_normal_paragraph(doc,
-        'The Customer shall use the Innoject Pro device only in accordance with the manufacturer\'s instructions and applicable regulatory requirements. The Customer shall ensure that all operators are trained and certified before using the device. Use of the device with unauthorized consumables or modifications shall void the warranty.')
+    add_p(doc, '3.1  MAH will deliver the Device at the address of Customer, as listed above. Delivery will take place as soon as possible after the signing of this Agreement by both Parties. Customer accept that Device was received in good working condition.', font_size=9.5, space_after=Pt(6))
 
-    _add_styled_heading(doc, '4.5 Warranty', level=2)
-    _add_normal_paragraph(doc,
-        'Intervet warrants that the Innoject Pro device shall be free from defects in material and workmanship for a period of 12 (twelve) months from the date of delivery. This warranty covers manufacturing defects only and excludes damage caused by misuse, unauthorized modification, or failure to follow operating instructions.')
+    # Article 4
+    p_art4 = add_p(doc, font_size=10, space_after=Pt(3))
+    add_run_to_para(p_art4, "Article 4.    ", font_size=10)
+    add_run_to_para(p_art4, "Ownership", font_size=10, underline=True)
 
-    _add_styled_heading(doc, '4.6 Consumables and Spare Parts', level=2)
-    _add_normal_paragraph(doc,
-        'The Customer shall purchase consumables, spare parts, and replacement components exclusively from Intervet or its authorized distributors to ensure device performance and safety compliance.')
+    add_p(doc, '4.1  The Device remains the property of MAH. The Customer shall have no right or interest other than as a user of the Device. The Customer shall not sell, assign, sublet, pledge or otherwise dispose of the Device. The Customer shall ensure that the Device remains the property of MAH and will not fix the Device to anything so that it cannot be removed without causing damage to the Device.', font_size=9.5, space_after=Pt(3))
+    add_p(doc, '4.2  If the Device is stolen, lost or damaged while in the possession of the Customer, the Customer shall at its cost and expenses replace the Device or pay damages to the reasonable satisfaction of MAH, unless otherwise agreed by the Parties. Customer will ensure the Device at its own expense and keep insured against damage by fire and theft.', font_size=9.5, space_after=Pt(3))
+    add_p(doc, '4.3  The Customer shall not allow any third party to use the Device unless MAH agrees to this use in writing.', font_size=9.5, space_after=Pt(6))
 
-    _add_styled_heading(doc, '4.7 Payment', level=2)
-    _add_normal_paragraph(doc,
-        'The Customer agrees to pay for the device(s) as per the commercial terms agreed between the Parties. All payments shall be made within 30 (thirty) days from the date of invoice.')
+    # Article 5
+    p_art5 = add_p(doc, font_size=10, space_after=Pt(3))
+    add_run_to_para(p_art5, "Article 5.    ", font_size=10)
+    add_run_to_para(p_art5, "Use and Maintenance", font_size=10, underline=True)
 
-    _add_styled_heading(doc, '4.8 Indemnification', level=2)
-    _add_normal_paragraph(doc,
-        'Each Party shall indemnify and hold harmless the other Party from any claims, losses, or damages arising from any breach of this Agreement or negligent use of the device.')
+    add_p(doc, '5.1  Customer undertakes to use or inform its customers to use the Device exclusively for the purposes and in accordance with the indications set forth in the instruction manual and/or as provided by MAH and in accordance with all applicable law.', font_size=9.5, space_after=Pt(3))
+    add_p(doc, '5.2  Customer warrants that its customers use the Device throughout the Term of this Agreement with diligence and keep it in good working order and maintenance, except for ordinary wear and tear.', font_size=9.5, space_after=Pt(3))
+    add_p(doc, '5.3  MAH will be responsible for the maintenance of the Device.', font_size=9.5, space_after=Pt(6))
 
-    _add_styled_heading(doc, '4.9 Confidentiality', level=2)
-    _add_normal_paragraph(doc,
-        'Both Parties agree to maintain the confidentiality of all proprietary information, including device specifications, pricing, and technical documentation, for a period of 3 (three) years following termination of this Agreement.')
+    # Article 6
+    p_art6_title = add_p(doc, font_size=10, space_after=Pt(3))
+    add_run_to_para(p_art6_title, "6.    ", font_size=10)
+    add_run_to_para(p_art6_title, "Warranty and Liability", font_size=10, underline=True)
 
-    _add_styled_heading(doc, '4.10 Governing Law', level=2)
-    _add_normal_paragraph(doc,
-        'This Agreement shall be governed by the laws of India. Any disputes shall be resolved through arbitration in Pune, Maharashtra, in accordance with the Arbitration and Conciliation Act, 1996.')
+    add_p(doc, '6.1  The Customer will be liable for all damages caused to person or property following the use of the Device and agrees to indemnify MAH from any claim for damage made by third parties related to the possession, safe-keeping or incorrect use of the Device.', font_size=9.5, space_after=Pt(3))
+    add_p(doc, '6.2  MAH is not liable for the Device supplied for free. MAH will not be liable for any damages related to Device or caused by Customer\'s use of the Device.', font_size=9.5, space_after=Pt(6))
 
-    _add_styled_heading(doc, '4.11 Entire Agreement', level=2)
-    _add_normal_paragraph(doc,
-        'This Agreement, together with its Exhibits, constitutes the entire agreement between the Parties and supersedes all prior understandings.')
+    # Article 7
+    p_art7 = add_p(doc, font_size=10, space_after=Pt(3))
+    add_run_to_para(p_art7, "Article 7.    ", font_size=10)
+    add_run_to_para(p_art7, "Term and Termination", font_size=10, underline=True)
 
-    # --- Section 5: Device Release Form ---
-    _add_styled_heading(doc, '5. DEVICE RELEASE FORM', level=1)
-    _add_normal_paragraph(doc, 'Date: {{date}}')
-    _add_normal_paragraph(doc, 'To,')
-    _add_normal_paragraph(doc, '{{customer_name}}')
-    _add_normal_paragraph(doc, '{{address}}')
-    doc.add_paragraph()
-    _add_normal_paragraph(doc,
-        'Dear Sir/Madam,')
-    _add_normal_paragraph(doc,
-        'We hereby confirm the release and delivery of the Innoject Pro device(s) as detailed in this Agreement. Please acknowledge receipt by signing below.')
+    add_p(doc, '7.1  This Agreement will be valid as of the Effective Date for a period of [number of years in letters, preferably no longer than 5 years], ([5]) year, thus ending on 13th of November, [2030].', font_size=9.5, space_after=Pt(6))
 
-    # --- Section 6: Internal Approval ---
-    _add_internal_approval_section(doc)
+    # Page 4
+    doc.add_page_break()
+    add_p(doc, "Confidential", font_size=9, space_after=Pt(14))
 
-    # --- Section 7: Signatures ---
-    _add_signature_section(doc)
+    add_p(doc, '7.2  At termination or expiration of this Agreement, Customer will return the Device to MAH, at its own expense, on its own initiative or at the request of MAH within seven (7) days after receipt of such a request, whichever is earliest unless Parties agree otherwise in writing.', font_size=9.5, space_after=Pt(3))
+    add_p(doc, '7.3  This Agreement may be terminated by MAH with immediate effect in case Customer did not purchase during the Period the agreed quantities of Products for that Period. In such event, at the sole discretion of MAH, Customer shall either pay to MAH the fair market value of the Device or Customer shall return the Device to MAH.', font_size=9.5, space_after=Pt(6))
 
-    # --- Exhibit A ---
-    _add_exhibit_a(doc)
+    # Miscellaneous
+    p_misc = add_p(doc, font_size=10, space_after=Pt(4))
+    add_run_to_para(p_misc, "Miscellaneous", font_size=10, underline=True)
+
+    # 7.4 Assignment
+    p_74 = add_p(doc, font_size=9.5, space_after=Pt(4))
+    add_run_to_para(p_74, "7.4    ", font_size=9.5)
+    add_run_to_para(p_74, "Assignment", font_size=9.5, italic=True)
+    add_p(doc, 'Customer shall not assign this Agreement or subcontract any of Customer\'s duties hereunder to any person, organization or other entity (including by operation of law, judicial process or otherwise) without the prior written consent of MAH, which consent may be withheld for any reason. MAH shall be entitled to assign this Agreement to any of its affiliates (including by operation of law, judicial process or otherwise) or any successor to its business or operations to which this Agreement relates without prior notice to or consent from Customer.', font_size=9.5, space_after=Pt(4))
+
+    # 7.5 Entire Agreement
+    p_75 = add_p(doc, font_size=9.5, space_after=Pt(4))
+    add_run_to_para(p_75, "7.5    ", font_size=9.5)
+    add_run_to_para(p_75, "Entire Agreement", font_size=9.5, italic=True)
+    add_p(doc, 'This Agreement, including its Exhibits, represents and contains the full and complete understanding and agreement of the Parties with respect to the subject matter hereof and supersedes and replaces all prior and contemporaneous agreements, general conditions of either Party, understandings, statements, clauses and conditions, both oral and written, with respect to the transactions contemplated by this Agreement or which may be contained in any other form or document.', font_size=9.5, space_after=Pt(4))
+
+    # 7.6 Amendment
+    p_76 = add_p(doc, font_size=9.5, space_after=Pt(4))
+    add_run_to_para(p_76, "7.6    ", font_size=9.5)
+    add_run_to_para(p_76, "Amendment", font_size=9.5, italic=True)
+    add_p(doc, 'Neither this Agreement nor any provision hereof may be amended, supplemented, waived or modified, except by a specific writing, entitled as an amendment and specifically referring to this Agreement, that is signed by an authorized officer of each Party.', font_size=9.5, space_after=Pt(4))
+
+    # 7.7 Severability
+    p_77 = add_p(doc, font_size=9.5, space_after=Pt(4))
+    add_run_to_para(p_77, "7.7    ", font_size=9.5)
+    add_run_to_para(p_77, "Severability", font_size=9.5, italic=True)
+    add_p(doc, 'In the event that any one or more of the provisions in this Agreement shall, for any reason, be held to be invalid, illegal or unenforceable in any respect, such invalidity, illegality or unenforceability, shall not affect any other provisions of this Agreement and all other provisions shall remain in full force and effect.', font_size=9.5, space_after=Pt(4))
+
+    # 7.8 Data Privacy
+    p_78 = add_p(doc, font_size=9.5, space_after=Pt(4))
+    add_run_to_para(p_78, "7.8    ", font_size=9.5)
+    add_run_to_para(p_78, "Data Privacy", font_size=9.5, italic=True)
+    add_p(doc, 'Each of Customer and MAH shall comply with the requirements of Exhibit X in connection with its obligations under this Agreement.', font_size=9.5, space_after=Pt(4))
+
+    # 7.9 Governing Law
+    p_79 = add_p(doc, font_size=9.5, space_after=Pt(4))
+    add_run_to_para(p_79, "7.9    ", font_size=9.5)
+    add_run_to_para(p_79, "Governing Law", font_size=9.5, italic=True)
+    add_p(doc, 'This Agreement shall be construed and governed in accordance with the laws India, without giving effect to the conflict of laws, rules or principles thereof. All disputes', font_size=9.5, space_after=Pt(4))
+
+    # Page 5: Dispute settlement continuation & Signatures
+    doc.add_page_break()
+    add_p(doc, "Confidential", font_size=9, space_after=Pt(14))
+    add_p(doc, 'arising out, of or in connection with this Agreement, which cannot be settled amicably, shall be exclusively settled by the court of Pune, India.', font_size=9.5, space_after=Pt(14))
+
+    build_signature_section(doc, left_party_name="{Distributor Name}", right_party_name="Intervet India Private Limited")
+
+    # Page 6: Exhibit A
+    build_exhibit_a(doc, "Proposed and Quantities")
+
+    # Page 7: Exhibit X
+    build_exhibit_x(doc, "Customer")
 
     return doc
 
 
 # =============================================================================
-# TEMPLATE 3: Indirect Agreement - Customer Ownership
+# 3. INDIRECT AGREEMENT TEMPLATE - CUSTOMER OWNERSHIP
 # =============================================================================
 def create_indirect_customer_ownership():
     doc = Document()
+    
+    # Page 1: Appendix B
+    build_page_1_appendix_b(doc, is_indirect=True)
 
-    style = doc.styles['Normal']
-    font = style.font
-    font.name = 'Calibri'
-    font.size = Pt(11)
+    # Page 2: Device Release Form (Distributor)
+    add_p(doc, "Confidential", font_size=9, space_after=Pt(14))
 
-    _create_title_page(doc,
-        'INDIRECT DEVICE AGREEMENT',
-        'Customer Ownership Model (via Distributor)')
+    p_title = add_p(doc, font_size=11, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(2))
+    add_run_to_para(p_title, "DEVICE RELEASE FORM", font_size=11, bold=True, underline=True)
+    p_subtitle = add_p(doc, "(DISTRIBUTOR)", font_size=11, bold=True, underline=True, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(14))
 
-    # --- Section 1: Parties ---
-    _add_styled_heading(doc, '1. PARTIES', level=1)
-    _add_normal_paragraph(doc,
-        'This Device Agreement ("Agreement") is entered into as of {{date}} ("Effective Date"), by and between:')
-    _add_normal_paragraph(doc,
-        'Intervet India Private Limited, a company incorporated under the laws of India, having its registered office at Pune, Maharashtra (hereinafter referred to as "Intervet" or "Company"), of the FIRST PART;',
-        space_after=Pt(8))
-    _add_normal_paragraph(doc, 'AND')
-    _add_normal_paragraph(doc,
-        '{{distributor_name}}, acting as the authorized distributor (hereinafter referred to as the "Distributor"), of the SECOND PART;',
-        space_after=Pt(8))
-    _add_normal_paragraph(doc, 'AND')
-    _add_normal_paragraph(doc,
-        '{{customer_name}}, located at {{location}}, being the end-customer and final recipient of the equipment (hereinafter referred to as the "Customer" or "End-User"), of the THIRD PART.',
-        space_after=Pt(8))
-    _add_normal_paragraph(doc,
-        '(Intervet, the Distributor, and the Customer are hereinafter individually referred to as "Party" and collectively as "Parties".)')
+    add_p(doc, 'This DEVICE RELEASE FORM ("Form"), made as of this {DATE} ("Effective Date"), by and between', font_size=10, space_after=Pt(6))
+    add_p(doc, 'Intervet India Private Limited, a company incorporated under the laws of India, having its registered office at Pune, Maharashtra ("MAH")', font_size=10, space_after=Pt(6))
+    add_p(doc, 'and', font_size=10, space_after=Pt(6))
+    add_p(doc, '{Distributor Name}, a corporation duly organized and existing under the laws of {Country}, having its principal place of business at {Distributor Name},', font_size=10, space_after=Pt(2))
+    add_p(doc, '{ADDRESS OF THE DISTRIBUTOR COMPANY}', font_size=10, bold=False, space_after=Pt(10))
 
-    # --- Section 2: Recitals ---
-    _add_styled_heading(doc, '2. RECITALS', level=1)
-    _add_normal_paragraph(doc,
-        'WHEREAS, Intervet is engaged in the business of manufacturing, importing, distributing, and selling animal health products, vaccines, and pharmaceutical devices for veterinary use;')
-    _add_normal_paragraph(doc,
-        'WHEREAS, {{distributor_name}} is an authorized distributor of Intervet and is engaged in the distribution and sale of Intervet products within the designated territory;')
-    _add_normal_paragraph(doc,
-        'WHEREAS, the Customer ({{customer_name}}) desires to purchase certain equipment/devices through the Distributor for use in its veterinary or animal health practice;')
-    _add_normal_paragraph(doc,
-        'WHEREAS, Intervet agrees to supply the equipment through the Distributor, and the ownership of the equipment shall ultimately transfer to the Customer upon completion of the transaction;')
-    _add_normal_paragraph(doc,
-        'NOW, THEREFORE, in consideration of the mutual covenants contained herein, the Parties agree as follows:')
+    add_p(doc, 'MAH and Distributor, intending to be legally bound, hereby agree as follows:', font_size=10, space_after=Pt(8))
 
-    # --- Section 3: Equipment Details ---
-    _add_styled_heading(doc, '3. EQUIPMENT DETAILS', level=1)
-    _add_normal_paragraph(doc,
-        'The following equipment/devices are covered under this Agreement and shall be delivered to the Customer ({{customer_name}}) through the Distributor ({{distributor_name}}):')
-    _add_equipment_table_marker(doc)
+    clauses = [
+        "1.  MAH shall deliver to the Distributor the Device free of charge.",
+        '2.  The Distributor shall endeavor during the Term of this Form to purchase such quantities of Products as set forth in Exhibit A attached to this Form. At the end of each [calendar quarter and/or period] ("Period").',
+        "3.  The Distributor agrees to promptly inform the MAH of the deployment of any devices to its customers. Such notification shall include detailed information regarding the location of each deployed device. This information is essential for the MAH to provide the necessary support as per the agreed terms. The Distributor shall ensure that all deployment details are communicated to the MAH within 5 working days of the installation of the Device at its customer location.",
+        "4.  The Distributor agrees to hold harmless, release, and indemnify MAH in full of any and all liability, damage, loss, or harm related to the Device or arising in any way from the use or storage of the Device.",
+        "5.  The Distributor acknowledges that the Device was received in good working condition and is henceforth the sole and exclusive responsibility of the Distributor and that MAH owes the Distributor no further obligation, of any kind whatsoever, related to the Device."
+    ]
 
-    # --- Section 4: Terms and Conditions ---
-    _add_styled_heading(doc, '4. TERMS AND CONDITIONS', level=1)
+    for cl in clauses:
+        add_p(doc, cl, font_size=9.5, space_after=Pt(6))
 
-    _add_styled_heading(doc, '4.1 Distribution Channel', level=2)
-    _add_normal_paragraph(doc,
-        'The equipment shall be supplied by Intervet to the Distributor ({{distributor_name}}), who shall in turn deliver the equipment to the Customer ({{customer_name}}). The Distributor is responsible for ensuring timely and safe delivery of the equipment to the Customer.')
+    # Page 3: Clause 6 & Signatures
+    doc.add_page_break()
+    add_p(doc, "Confidential", font_size=9, space_after=Pt(14))
+    add_p(doc, "6.  The Customer understands that MAH released ownership of the Device to the Customer and further agrees that the Customer shall hold harmless, release, and indemnify MAH in full of any and all liability, damage, loss, or harm related to the Device or arising in any way from use or storage of the Device.", font_size=9.5, space_after=Pt(14))
 
-    _add_styled_heading(doc, '4.2 Ownership and Transfer', level=2)
-    _add_normal_paragraph(doc,
-        'Upon completion of the sale transaction and receipt of full payment (either directly from the Customer or through the Distributor), the ownership of the equipment shall transfer to the Customer ({{customer_name}}). The Customer shall be the sole and absolute owner of the equipment.')
+    build_signature_section(doc, left_party_name="{Customer Name}", right_party_name="Intervet India Private Limited")
 
-    _add_styled_heading(doc, '4.3 Responsibilities of the Distributor', level=2)
-    _add_normal_paragraph(doc,
-        'The Distributor ({{distributor_name}}) shall: (a) facilitate the delivery of equipment to the Customer; (b) provide initial product orientation and support; (c) collect and remit payments as per agreed commercial terms; (d) maintain accurate records of all transactions; and (e) report any product complaints or adverse events to Intervet within 24 hours.')
+    # Page 4: Exhibit A
+    build_exhibit_a(doc, "Products and Quantities")
 
-    _add_styled_heading(doc, '4.4 Payment', level=2)
-    _add_normal_paragraph(doc,
-        'Payment for the equipment shall be made as per the commercial terms agreed between the Parties. The Distributor shall ensure that all financial obligations are fulfilled within the agreed timelines.')
-
-    _add_styled_heading(doc, '4.5 Warranty', level=2)
-    _add_normal_paragraph(doc,
-        'Intervet warrants that the equipment shall be free from defects in material and workmanship for a period of 12 (twelve) months from the date of delivery to the Customer. Warranty claims shall be processed through the Distributor or directly with Intervet.')
-
-    _add_styled_heading(doc, '4.6 Maintenance and Support', level=2)
-    _add_normal_paragraph(doc,
-        'During the Warranty Period, Intervet shall provide maintenance and technical support either directly or through the Distributor. After the Warranty Period, maintenance services shall be available at mutually agreed commercial terms.')
-
-    _add_styled_heading(doc, '4.7 Use of Equipment', level=2)
-    _add_normal_paragraph(doc,
-        'The Customer shall use the equipment solely for its intended purpose and in accordance with the manufacturer\'s guidelines. The Customer shall ensure that the equipment is operated only by qualified and trained personnel.')
-
-    _add_styled_heading(doc, '4.8 Indemnification', level=2)
-    _add_normal_paragraph(doc,
-        'Each Party shall indemnify and hold harmless the other Parties from any claims, losses, or damages arising from any breach of this Agreement or negligent acts.')
-
-    _add_styled_heading(doc, '4.9 Confidentiality', level=2)
-    _add_normal_paragraph(doc,
-        'All Parties agree to maintain the confidentiality of proprietary information exchanged in connection with this Agreement for a period of 3 (three) years following termination.')
-
-    _add_styled_heading(doc, '4.10 Governing Law', level=2)
-    _add_normal_paragraph(doc,
-        'This Agreement shall be governed by the laws of India. Any disputes shall be resolved through arbitration in Pune, Maharashtra.')
-
-    _add_styled_heading(doc, '4.11 Entire Agreement', level=2)
-    _add_normal_paragraph(doc,
-        'This Agreement constitutes the entire understanding between the Parties and supersedes all prior agreements.')
-
-    # --- Section 5: Device Release Form ---
-    _add_styled_heading(doc, '5. DEVICE RELEASE FORM', level=1)
-    _add_normal_paragraph(doc, 'Date: {{date}}')
-    _add_normal_paragraph(doc, 'To,')
-    _add_normal_paragraph(doc, '{{distributor_name}}')
-    _add_normal_paragraph(doc, '{{address}}')
-    doc.add_paragraph()
-    _add_normal_paragraph(doc,
-        'Dear Sir/Madam,')
-    _add_normal_paragraph(doc,
-        'We hereby confirm the release and delivery of the equipment as detailed in this Agreement, for onward delivery to the Customer ({{customer_name}}) at {{location}}. Please acknowledge receipt by signing below.')
-
-    # --- Section 6: Internal Approval ---
-    _add_internal_approval_section(doc)
-
-    # --- Section 7: Signatures ---
-    _add_signature_section(doc)
-
-    # --- Exhibit A ---
-    _add_exhibit_a(doc)
+    # Page 5: Exhibit X
+    build_exhibit_x(doc, "Customer")
 
     return doc
 
 
 # =============================================================================
-# TEMPLATE 4: Indirect Agreement - Innoject Pro
+# 4. INDIRECT AGREEMENT TEMPLATE - INNOJECT PRO
 # =============================================================================
 def create_indirect_innoject_pro():
     doc = Document()
+    
+    # Page 1: Appendix B
+    build_page_1_appendix_b(doc, is_indirect=True)
 
-    style = doc.styles['Normal']
-    font = style.font
-    font.name = 'Calibri'
-    font.size = Pt(11)
+    # Page 2: Device Agreement
+    add_p(doc, "Confidential", font_size=9, space_after=Pt(14))
+    add_p(doc, "DEVICE AGREEMENT", font_size=11, bold=True, underline=True, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(14))
 
-    _create_title_page(doc,
-        'INDIRECT DEVICE AGREEMENT',
-        'Innoject Pro — Needle-Free Injection System (via Distributor)')
+    add_p(doc, 'This DEVICE AGREEMENT ("Agreement"), made as of this {DATE} ("Effective Date"), by and between', font_size=10, space_after=Pt(6))
+    add_p(doc, 'Intervet India Private Limited, a company incorporated under the laws of India, having its registered office at Pune, Maharashtra ("MAH")', font_size=10, space_after=Pt(6))
+    add_p(doc, 'and', font_size=10, space_after=Pt(6))
+    add_p(doc, '{Distributor Name}, a corporation duly organized and existing under the laws of India, having its principal place of business at {Distributor Name},', font_size=10, space_after=Pt(2))
+    add_p(doc, '{ADDRESS OF THE DISTRIBUTOR COMPANY}', font_size=10, bold=False, space_after=Pt(8))
 
-    # --- Section 1: Parties ---
-    _add_styled_heading(doc, '1. PARTIES', level=1)
-    _add_normal_paragraph(doc,
-        'This Device Agreement ("Agreement") is entered into as of {{date}} ("Effective Date"), by and between:')
-    _add_normal_paragraph(doc,
-        'Intervet India Private Limited, a company incorporated under the laws of India, having its registered office at Pune, Maharashtra (hereinafter referred to as "Intervet" or "Company"), of the FIRST PART;',
-        space_after=Pt(8))
-    _add_normal_paragraph(doc, 'AND')
-    _add_normal_paragraph(doc,
-        '{{distributor_name}}, acting as the authorized distributor (hereinafter referred to as the "Distributor"), of the SECOND PART;',
-        space_after=Pt(8))
-    _add_normal_paragraph(doc, 'AND')
-    _add_normal_paragraph(doc,
-        '{{customer_name}}, located at {{location}}, being the end-customer and final recipient of the Innoject Pro device(s) (hereinafter referred to as the "Customer" or "End-User"), of the THIRD PART.',
-        space_after=Pt(8))
-    _add_normal_paragraph(doc,
-        '(Intervet, the Distributor, and the Customer are hereinafter individually referred to as "Party" and collectively as "Parties".)')
+    add_p(doc, 'WHEREAS,', font_size=10, bold=True, space_after=Pt(4))
+    add_p(doc, '•  MAH is engaged in the business of developing, manufacturing, marketing and selling certain Products (as hereinafter defined);', font_size=9.5, space_after=Pt(3))
+    add_p(doc, '•  MAH is willing to offer to Customer the opportunity to use the Device as complementary service and Customer wishes to accept such offer at the terms set herein.', font_size=9.5, space_after=Pt(6))
 
-    # --- Section 2: Recitals ---
-    _add_styled_heading(doc, '2. RECITALS', level=1)
-    _add_normal_paragraph(doc,
-        'WHEREAS, Intervet is engaged in the business of manufacturing, importing, distributing, and selling animal health products, vaccines, pharmaceutical devices, and needle-free injection systems for veterinary use;')
-    _add_normal_paragraph(doc,
-        'WHEREAS, Intervet has developed the Innoject Pro Needle-Free Injection System ("Innoject Pro"), a proprietary device designed for needle-free administration of vaccines and pharmaceuticals in animals;')
-    _add_normal_paragraph(doc,
-        'WHEREAS, {{distributor_name}} is an authorized distributor of Intervet and is engaged in the distribution and sale of Intervet products;')
-    _add_normal_paragraph(doc,
-        'WHEREAS, the Customer ({{customer_name}}) desires to acquire Innoject Pro device(s) through the Distributor for use in its veterinary practice;')
-    _add_normal_paragraph(doc,
-        'NOW, THEREFORE, in consideration of the mutual covenants contained herein, the Parties agree as follows:')
+    add_p(doc, 'NOW, THEREFORE, in consideration of the promises and the mutual agreements, covenants and conditions set forth in this Agreement and other good and valuable consideration, the receipt and sufficiency of which are hereby acknowledged, MAH and Customer, intending to be legally bound, hereby agree as follows:', font_size=9.5, space_after=Pt(8))
 
-    # --- Section 3: Equipment Details ---
-    _add_styled_heading(doc, '3. EQUIPMENT DETAILS', level=1)
-    _add_normal_paragraph(doc,
-        'The following Innoject Pro device(s) and accessories are covered under this Agreement and shall be delivered to the Customer ({{customer_name}}) through the Distributor ({{distributor_name}}):')
-    _add_equipment_table_marker(doc)
+    # Article 1
+    p_art1 = add_p(doc, font_size=10, space_after=Pt(3))
+    add_run_to_para(p_art1, "Article 1.    ", font_size=10)
+    add_run_to_para(p_art1, "Definitions", font_size=10, underline=True)
+    
+    add_p(doc, 'For purposes of this Agreement, the following terms shall have the following meanings:', font_size=9.5, space_after=Pt(2))
+    add_p(doc, '1.1  "Device" shall mean Innoject Pro Double Injection with Eye Drop.', font_size=9.5, space_after=Pt(2))
+    add_p(doc, '1.2  "Party" shall mean MAH or Customer and "Parties" shall mean MAH and Customer.', font_size=9.5, space_after=Pt(2))
+    add_p(doc, '1.3  "Products" shall mean any finished, packaged product, as set forth in Exhibit A, which is manufactured by or on behalf of MAH or any Affiliate of MAH in accordance with the standards, specifications, and formulae established by MAH or such Affiliate.', font_size=9.5, space_after=Pt(6))
 
-    # --- Section 4: Terms and Conditions ---
-    _add_styled_heading(doc, '4. TERMS AND CONDITIONS', level=1)
+    # Article 2
+    p_art2 = add_p(doc, font_size=10, space_after=Pt(3))
+    add_run_to_para(p_art2, "Article 2.    ", font_size=10)
+    add_run_to_para(p_art2, "Usage of Device", font_size=10, underline=True)
 
-    _add_styled_heading(doc, '4.1 Distribution Channel', level=2)
-    _add_normal_paragraph(doc,
-        'The Innoject Pro device(s) shall be supplied by Intervet to the Distributor ({{distributor_name}}), who shall deliver the device(s) to the Customer ({{customer_name}}). The Distributor is responsible for safe and timely delivery.')
+    add_p(doc, '2.1  MAH shall provide the Device free of charge to the Customer as a complementary service. The MAH can provide these devices to its customers free of charge, complying with MAH\'s ownership rights as provided in this agreement.', font_size=9.5, space_after=Pt(3))
+    add_p(doc, '2.2  The Customer agrees to promptly inform the MAH of the deployment of any devices to its customers. Such notification shall include detailed information regarding the location of each deployed device. This information is essential for the MAH to provide the necessary support as per the agreed terms. The Customer shall ensure that all deployment details are communicated to the MAH within 5 working days of the installation of the Device at its customer location.', font_size=9.5, space_after=Pt(6))
 
-    _add_styled_heading(doc, '4.2 Device Specifications', level=2)
-    _add_normal_paragraph(doc,
-        'The Innoject Pro is a needle-free injection system designed for subcutaneous and intramuscular administration of vaccines and pharmaceuticals in livestock and companion animals using high-pressure technology.')
+    # Page 3
+    doc.add_page_break()
+    add_p(doc, "Confidential", font_size=9, space_after=Pt(14))
 
-    _add_styled_heading(doc, '4.3 Ownership and Transfer', level=2)
-    _add_normal_paragraph(doc,
-        'Upon completion of the sale and receipt of full payment, ownership of the Innoject Pro device(s) shall transfer to the Customer ({{customer_name}}). The Customer shall be the sole and absolute owner.')
+    # Article 3
+    p_art3 = add_p(doc, font_size=10, space_after=Pt(3))
+    add_run_to_para(p_art3, "Article 3.    ", font_size=10)
+    add_run_to_para(p_art3, "Transfer and Delivery", font_size=10, underline=True)
 
-    _add_styled_heading(doc, '4.4 Training and Certification', level=2)
-    _add_normal_paragraph(doc,
-        'Intervet shall arrange comprehensive training for the Customer\'s personnel, either directly or through the Distributor, on proper use, handling, maintenance, and safety protocols of the Innoject Pro device within 30 days of delivery.')
+    add_p(doc, '3.1  MAH will deliver the Device at the address of Customer, as listed above. Delivery will take place as soon as possible after the signing of this Agreement by both Parties. Customer accept that Device was received in good working condition.', font_size=9.5, space_after=Pt(6))
 
-    _add_styled_heading(doc, '4.5 Safety and Compliance', level=2)
-    _add_normal_paragraph(doc,
-        'The Customer shall use the Innoject Pro device only in accordance with manufacturer\'s instructions and applicable regulations. Use with unauthorized consumables or modifications shall void the warranty.')
+    # Article 4
+    p_art4 = add_p(doc, font_size=10, space_after=Pt(3))
+    add_run_to_para(p_art4, "Article 4.    ", font_size=10)
+    add_run_to_para(p_art4, "Ownership", font_size=10, underline=True)
 
-    _add_styled_heading(doc, '4.6 Responsibilities of the Distributor', level=2)
-    _add_normal_paragraph(doc,
-        'The Distributor ({{distributor_name}}) shall: (a) facilitate delivery of device(s) to the Customer; (b) coordinate training sessions; (c) collect and remit payments; (d) maintain transaction records; and (e) report product complaints to Intervet within 24 hours.')
+    add_p(doc, '4.1  The Device remains the property of MAH. The Customer shall have no right or interest other than as a user of the Device. The Customer shall not sell, assign, sublet, pledge or otherwise dispose of the Device. The Customer shall ensure that the Device remains the property of MAH and will not fix the Device to anything so that it cannot be removed without causing damage to the Device.', font_size=9.5, space_after=Pt(3))
+    add_p(doc, '4.2  If the Device is stolen, lost or damaged while in the possession of the Customer, the Customer shall at its cost and expenses replace the Device or pay damages to the reasonable satisfaction of MAH, unless otherwise agreed by the Parties. Customer will ensure the Device at its own expense and keep insured against damage by fire and theft.', font_size=9.5, space_after=Pt(3))
+    add_p(doc, '4.3  The Customer shall not allow any third party to use the Device unless MAH agrees to this use in writing.', font_size=9.5, space_after=Pt(6))
 
-    _add_styled_heading(doc, '4.7 Warranty', level=2)
-    _add_normal_paragraph(doc,
-        'Intervet warrants the Innoject Pro device(s) shall be free from manufacturing defects for 12 months from delivery to the Customer. This warranty excludes damage from misuse or unauthorized modification.')
+    # Article 5
+    p_art5 = add_p(doc, font_size=10, space_after=Pt(3))
+    add_run_to_para(p_art5, "Article 5.    ", font_size=10)
+    add_run_to_para(p_art5, "Use and Maintenance", font_size=10, underline=True)
 
-    _add_styled_heading(doc, '4.8 Consumables and Spare Parts', level=2)
-    _add_normal_paragraph(doc,
-        'The Customer shall purchase consumables and spare parts exclusively from Intervet or authorized distributors to maintain device performance and safety compliance.')
+    add_p(doc, '5.1  Customer undertakes to use or inform its customers to use the Device exclusively for the purposes and in accordance with the indications set forth in the instruction manual and/or as provided by MAH and in accordance with all applicable law.', font_size=9.5, space_after=Pt(3))
+    add_p(doc, '5.2  Customer warrants that its customers use the Device throughout the Term of this Agreement with diligence and keep it in good working order and maintenance, except for ordinary wear and tear.', font_size=9.5, space_after=Pt(3))
+    add_p(doc, '5.3  MAH will be responsible for the maintenance of the Device.', font_size=9.5, space_after=Pt(6))
 
-    _add_styled_heading(doc, '4.9 Payment', level=2)
-    _add_normal_paragraph(doc,
-        'Payment for the device(s) shall be made as per agreed commercial terms. The Distributor shall ensure all financial obligations are fulfilled within agreed timelines.')
+    # Article 6
+    p_art6_title = add_p(doc, font_size=10, space_after=Pt(3))
+    add_run_to_para(p_art6_title, "6.    ", font_size=10)
+    add_run_to_para(p_art6_title, "Warranty and Liability", font_size=10, underline=True)
 
-    _add_styled_heading(doc, '4.10 Indemnification', level=2)
-    _add_normal_paragraph(doc,
-        'Each Party shall indemnify and hold harmless the other Parties from any claims arising from breach of this Agreement or negligent acts.')
+    add_p(doc, '6.1  The Customer will be liable for all damages caused to person or property following the use of the Device and agrees to indemnify MAH from any claim for damage made by third parties related to the possession, safe-keeping or incorrect use of the Device.', font_size=9.5, space_after=Pt(3))
+    add_p(doc, '6.2  MAH is not liable for the Device supplied for free. MAH will not be liable for any damages related to Device or caused by Customerr\'s use of the Device.', font_size=9.5, space_after=Pt(6))
 
-    _add_styled_heading(doc, '4.11 Confidentiality', level=2)
-    _add_normal_paragraph(doc,
-        'All Parties agree to maintain confidentiality of proprietary information, including device specifications, pricing, and technical documentation, for 3 years following termination.')
+    # Article 7
+    p_art7 = add_p(doc, font_size=10, space_after=Pt(3))
+    add_run_to_para(p_art7, "Article 7.    ", font_size=10)
+    add_run_to_para(p_art7, "Term and Termination", font_size=10, underline=True)
 
-    _add_styled_heading(doc, '4.12 Governing Law', level=2)
-    _add_normal_paragraph(doc,
-        'This Agreement shall be governed by the laws of India. Disputes shall be resolved through arbitration in Pune, Maharashtra.')
+    add_p(doc, '7.1  This Agreement will be valid as of the Effective Date for a period of [number of years in letters, preferably no longer than 5 years], ([5]) year, thus ending on 9th of February, [2031].', font_size=9.5, space_after=Pt(6))
 
-    _add_styled_heading(doc, '4.13 Entire Agreement', level=2)
-    _add_normal_paragraph(doc,
-        'This Agreement constitutes the entire understanding between the Parties and supersedes all prior agreements.')
+    # Page 4
+    doc.add_page_break()
+    add_p(doc, "Confidential", font_size=9, space_after=Pt(14))
 
-    # --- Section 5: Device Release Form ---
-    _add_styled_heading(doc, '5. DEVICE RELEASE FORM', level=1)
-    _add_normal_paragraph(doc, 'Date: {{date}}')
-    _add_normal_paragraph(doc, 'To,')
-    _add_normal_paragraph(doc, '{{distributor_name}}')
-    _add_normal_paragraph(doc, '{{address}}')
-    doc.add_paragraph()
-    _add_normal_paragraph(doc,
-        'Dear Sir/Madam,')
-    _add_normal_paragraph(doc,
-        'We hereby confirm the release and delivery of the Innoject Pro device(s) as detailed in this Agreement, for onward delivery to the Customer ({{customer_name}}) at {{location}}. Please acknowledge receipt by signing below.')
+    add_p(doc, '7.2  At termination or expiration of this Agreement, Customer will return the Device to MAH, at its own expense, on its own initiative or at the request of MAH within seven (7) days after receipt of such a request, whichever is earliest unless Parties agree otherwise in writing.', font_size=9.5, space_after=Pt(3))
+    add_p(doc, '7.3  This Agreement may be terminated by MAH with immediate effect in case Customer did not purchase during the Period the agreed quantities of Products for that Period. In such event, at the sole discretion of MAH, Customer shall either pay to MAH the fair market value of the Device or Customer shall return the Device to MAH.', font_size=9.5, space_after=Pt(6))
 
-    # --- Section 6: Internal Approval ---
-    _add_internal_approval_section(doc)
+    # Miscellaneous
+    p_misc = add_p(doc, font_size=10, space_after=Pt(4))
+    add_run_to_para(p_misc, "Miscellaneous", font_size=10, underline=True)
 
-    # --- Section 7: Signatures ---
-    _add_signature_section(doc)
+    # 7.4 Assignment
+    p_74 = add_p(doc, font_size=9.5, space_after=Pt(4))
+    add_run_to_para(p_74, "7.4    ", font_size=9.5)
+    add_run_to_para(p_74, "Assignment", font_size=9.5, italic=True)
+    add_p(doc, 'Customer shall not assign this Agreement or subcontract any of Customer\'s duties hereunder to any person, organization or other entity (including by operation of law, judicial process or otherwise) without the prior written consent of MAH, which consent may be withheld for any reason. MAH shall be entitled to assign this Agreement to any of its affiliates (including by operation of law, judicial process or otherwise) or any successor to its business or operations to which this Agreement relates without prior notice to or consent from Customer.', font_size=9.5, space_after=Pt(4))
 
-    # --- Exhibit A ---
-    _add_exhibit_a(doc)
+    # 7.5 Entire Agreement
+    p_75 = add_p(doc, font_size=9.5, space_after=Pt(4))
+    add_run_to_para(p_75, "7.5    ", font_size=9.5)
+    add_run_to_para(p_75, "Entire Agreement", font_size=9.5, italic=True)
+    add_p(doc, 'This Agreement, including its Exhibits, represents and contains the full and complete understanding and agreement of the Parties with respect to the subject matter hereof and supersedes and replaces all prior and contemporaneous agreements, general conditions of either Party, understandings, statements, clauses and conditions, both oral and written, with respect to the transactions contemplated by this Agreement or which may be contained in any other form or document.', font_size=9.5, space_after=Pt(4))
+
+    # 7.6 Amendment
+    p_76 = add_p(doc, font_size=9.5, space_after=Pt(4))
+    add_run_to_para(p_76, "7.6    ", font_size=9.5)
+    add_run_to_para(p_76, "Amendment", font_size=9.5, italic=True)
+    add_p(doc, 'Neither this Agreement nor any provision hereof may be amended, supplemented, waived or modified, except by a specific writing, entitled as an amendment and specifically referring to this Agreement, that is signed by an authorized officer of each Party.', font_size=9.5, space_after=Pt(4))
+
+    # 7.7 Severability
+    p_77 = add_p(doc, font_size=9.5, space_after=Pt(4))
+    add_run_to_para(p_77, "7.7    ", font_size=9.5)
+    add_run_to_para(p_77, "Severability", font_size=9.5, italic=True)
+    add_p(doc, 'In the event that any one or more of the provisions in this Agreement shall, for any reason, be held to be invalid, illegal or unenforceable in any respect, such invalidity, illegality or unenforceability, shall not affect any other provisions of this Agreement and all other provisions shall remain in full force and effect.', font_size=9.5, space_after=Pt(4))
+
+    # 7.8 Data Privacy
+    p_78 = add_p(doc, font_size=9.5, space_after=Pt(4))
+    add_run_to_para(p_78, "7.8    ", font_size=9.5)
+    add_run_to_para(p_78, "Data Privacy", font_size=9.5, italic=True)
+    add_p(doc, 'Each of Customer and MAH shall comply with the requirements of Exhibit X in connection with its obligations under this Agreement.', font_size=9.5, space_after=Pt(4))
+
+    # 7.9 Governing Law
+    p_79 = add_p(doc, font_size=9.5, space_after=Pt(4))
+    add_run_to_para(p_79, "7.9    ", font_size=9.5)
+    add_run_to_para(p_79, "Governing Law", font_size=9.5, italic=True)
+    add_p(doc, 'This Agreement shall be construed and governed in accordance with the laws India, without giving effect to the conflict of laws, rules or principles thereof. All disputes', font_size=9.5, space_after=Pt(4))
+
+    # Page 5: Dispute settlement continuation & Signatures
+    doc.add_page_break()
+    add_p(doc, "Confidential", font_size=9, space_after=Pt(14))
+    add_p(doc, 'arising out, of or in connection with this Agreement, which cannot be settled amicably, shall be exclusively settled by the court of Pune, India.', font_size=9.5, space_after=Pt(14))
+
+    build_signature_section(doc, left_party_name="{Customer Name}", right_party_name="Intervet India Private Limited")
+
+    # Page 6: Exhibit A
+    build_exhibit_a(doc, "Proposed and Quantities")
+
+    # Page 7: Exhibit X
+    build_exhibit_x(doc, "Customer")
 
     return doc
 
 
 # =============================================================================
-# MAIN GENERATOR
+# MAIN EXECUTOR
 # =============================================================================
 TEMPLATES = {
     'Direct Agreement Template-Customer ownership': create_direct_customer_ownership,
@@ -740,16 +778,15 @@ TEMPLATES = {
 
 
 def generate_all_templates():
-    """Generate all 4 agreement templates."""
     TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
     for name, creator_fn in TEMPLATES.items():
         filepath = TEMPLATES_DIR / f"{name}.docx"
         doc = creator_fn()
         doc.save(filepath)
-        print(f"  [OK] Created: {filepath.name}")
+        print(f"  [OK] Created matching template: {filepath.name}")
 
 
 if __name__ == '__main__':
-    print("Generating agreement templates...")
+    print("Generating exact visual-matching agreement templates from reference images...")
     generate_all_templates()
-    print("Done.")
+    print("All 4 exact templates created successfully.")

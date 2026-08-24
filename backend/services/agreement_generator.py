@@ -62,8 +62,6 @@ class AgreementGenerator:
     def _replace_text_in_paragraph(self, paragraph, placeholders: Dict[str, str]):
         for key, val in placeholders.items():
             if key in paragraph.text:
-                # If key is contained completely in paragraph text
-                # We need to handle case where key spans multiple runs or is in a single run
                 full_text = paragraph.text
                 if key in full_text:
                     new_text = full_text.replace(key, str(val))
@@ -112,7 +110,7 @@ class AgreementGenerator:
         clean_cust_sig = self._normalize_image(customer_sig) if customer_sig else None
         clean_intervet_sig = self._normalize_image(intervet_sig) if intervet_sig else None
 
-        # Replace in tables (signatures are inside tables)
+        # Replace in tables (signatures are inside borderless tables for layout)
         for table in doc.tables:
             for row in table.rows:
                 for cell in row.cells:
@@ -202,13 +200,120 @@ class AgreementGenerator:
         # Remove target_p
         target_p._p.getparent().remove(target_p._p)
 
+    def _build_appendix_b_equipment(self, doc: Document, equipment_list: List[Dict[str, Any]], target_p):
+        """Replace the inline Appendix B equipment table with actual equipment data.
+        
+        This replaces the placeholder equipment rows in the Appendix B table
+        (Description/Quantity/FMV format) with the actual equipment items.
+        """
+        # Build a new equipment table matching the Appendix B format (3 cols: Description, Quantity, FMV)
+        num_rows = len(equipment_list) + 2  # header + data rows + empty row
+        table = doc.add_table(rows=num_rows, cols=3)
+        table.style = 'Table Grid'
+        table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
+
+        for row in table.rows:
+            row.cells[0].width = Inches(2.5)
+            row.cells[1].width = Inches(1.5)
+            row.cells[2].width = Inches(1.5)
+
+        # Header row
+        for i, h in enumerate(['Description', 'Quantity', 'FMV']):
+            cell = table.cell(0, i)
+            cell.text = h
+            for p in cell.paragraphs:
+                for run in p.runs:
+                    run.bold = True
+                    run.underline = i < 2  # Description and Quantity are underlined
+                    run.font.size = Pt(9)
+                    run.font.name = 'Times New Roman'
+
+        # Equipment data rows
+        for idx, item in enumerate(equipment_list):
+            eq_name = str(item.get('equipment_name', '') if isinstance(item, dict) else getattr(item, 'equipment_name', ''))
+            qty = str(item.get('quantity', '') if isinstance(item, dict) else getattr(item, 'quantity', ''))
+            
+            table.cell(idx + 1, 0).text = eq_name
+            table.cell(idx + 1, 1).text = qty
+            table.cell(idx + 1, 2).text = ''
+            
+            for col in range(3):
+                for p in table.cell(idx + 1, col).paragraphs:
+                    for run in p.runs:
+                        run.font.size = Pt(9)
+                        run.font.name = 'Times New Roman'
+
+        # Empty trailing row
+        last_row = num_rows - 1
+        for col in range(3):
+            table.cell(last_row, col).text = ''
+
+        # Move table to position and remove the marker paragraph
+        target_p._p.addnext(table._tbl)
+        target_p._p.getparent().remove(target_p._p)
+
     def _replace_equipment_markers(self, doc: Document, equipment_list: List[Dict[str, Any]]):
-        """Find {{equipment_table}} and {{exhibit_a_equipment}} and insert dynamic tables."""
+        """Find {{appendix_b_equipment_table}} and {{exhibit_a_equipment}} and insert dynamic tables."""
         for p in list(doc.paragraphs):
-            if '{{equipment_table}}' in p.text:
-                self._build_equipment_table(doc, equipment_list, p)
+            if '{{appendix_b_equipment_table}}' in p.text:
+                self._build_appendix_b_equipment(doc, equipment_list, p)
             elif '{{exhibit_a_equipment}}' in p.text:
                 self._build_equipment_table(doc, equipment_list, p)
+        
+        # Also check inside table cells for markers (Appendix B marker may be inside a table)
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for p in list(cell.paragraphs):
+                        if '{{appendix_b_equipment_table}}' in p.text:
+                            # Just remove the marker from within the table cell
+                            p.text = p.text.replace('{{appendix_b_equipment_table}}', '')
+                        elif '{{exhibit_a_equipment}}' in p.text:
+                            p.text = p.text.replace('{{exhibit_a_equipment}}', '')
+
+    def _replace_equipment_in_existing_tables(self, doc: Document, equipment_list: List[Dict[str, Any]]):
+        """Replace placeholder equipment rows in existing Appendix B tables.
+        
+        Finds cells containing '{Equipment Name}' and '{quantity}' in the Appendix B 
+        equipment table (Description/Quantity/FMV) and replaces with actual data.
+        """
+        for table in doc.tables:
+            eq_idx = 0
+            for row in table.rows:
+                cells = row.cells
+                has_eq_placeholder = False
+                for cell in cells:
+                    if '{Equipment Name}' in cell.text or '{quantity}' in cell.text:
+                        has_eq_placeholder = True
+                        break
+                
+                if has_eq_placeholder and eq_idx < len(equipment_list):
+                    item = equipment_list[eq_idx]
+                    eq_name = str(item.get('equipment_name', '') if isinstance(item, dict) else getattr(item, 'equipment_name', ''))
+                    qty = str(item.get('quantity', '') if isinstance(item, dict) else getattr(item, 'quantity', ''))
+                    
+                    for cell in cells:
+                        for paragraph in cell.paragraphs:
+                            if '{Equipment Name}' in paragraph.text:
+                                new_text = paragraph.text.replace('{Equipment Name}', eq_name)
+                                if paragraph.runs:
+                                    paragraph.runs[0].text = new_text
+                                    for r in paragraph.runs[1:]:
+                                        r.text = ""
+                                else:
+                                    paragraph.text = new_text
+                            if '{quantity}' in paragraph.text:
+                                new_text = paragraph.text.replace('{quantity}', qty)
+                                if paragraph.runs:
+                                    paragraph.runs[0].text = new_text
+                                    for r in paragraph.runs[1:]:
+                                        r.text = ""
+                                else:
+                                    paragraph.text = new_text
+                    eq_idx += 1
 
     def generate_agreement(self, entry_id: str, form_data: Dict[str, Any], agreement_type: str, 
                            customer_signature_path: Optional[str], intervet_signature_path: str) -> str:
@@ -249,29 +354,49 @@ class AgreementGenerator:
                 elif hasattr(item, 'equipment_name'):
                     equipment_list.append({'equipment_name': item.equipment_name, 'quantity': item.quantity})
 
+        # Build placeholders mapping - uses exact placeholder strings from templates
         placeholders = {
-            '{{customer_name}}': customer_name,
-            '{{distributor_name}}': distributor_name,
-            '{{location}}': location,
-            '{{date}}': formatted_date,
-            '{{address}}': address,
-            '{{initiator_name_and_date}}': initiator_info,
-            '{{manager_name_and_date}}': manager_info,
-            '{{receiver_name}}': receiver_name,
-            '{{receiver_title}}': receiver_title,
-            '{{receiver_date}}': receiver_date,
-            '{{intervet_name}}': intervet_name,
-            '{{intervet_title}}': intervet_title,
-            '{{intervet_date}}': intervet_date,
+            # Core entity names
+            '{Customer Name}': customer_name,
+            '{Distributor Name}': distributor_name if distributor_name else customer_name,
+            '{{Customer Name}}': customer_name,
+            
+            # Location
+            '{Location}': location,
+            
+            # Date (formatted as "28th May, 2026")
+            '{DATE}': formatted_date,
+            
+            # Addresses
+            '{ADDRESS OF THE CUSTOMER COMPANY}': address,
+            '{ADDRESS OF THE DISTRIBUTOR COMPANY}': address,
+            
+            # Internal approval
+            '{Initiator Name and Date}': initiator_info,
+            '{Manager Name and Date}': manager_info,
+            
+            # Customer/Receiver signature fields
+            '{Receiver Name}': receiver_name,
+            '{Title of receiver}': receiver_title,
+            
+            # Intervet signature fields
+            '{Name}': intervet_name,
+            '{Title}': intervet_title,
+            
+            # Country placeholder for indirect
+            '{Country}': 'India',
         }
         
         # 1. Replace text placeholders throughout document
         self._replace_placeholders(doc, placeholders)
 
-        # 2. Insert dynamic equipment tables
+        # 2. Replace equipment placeholders in existing Appendix B tables
+        self._replace_equipment_in_existing_tables(doc, equipment_list)
+
+        # 3. Insert dynamic equipment tables for markers
         self._replace_equipment_markers(doc, equipment_list)
 
-        # 3. Embed signatures
+        # 4. Embed signatures
         self._embed_signatures(doc, customer_signature_path, intervet_signature_path)
         
         output_filename = f"{entry_id}_{agreement_type}_{agreement_id}.docx"
